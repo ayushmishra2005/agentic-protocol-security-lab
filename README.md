@@ -4,9 +4,11 @@ AI-native, spec-driven protocol security agent that turns code changes into thre
 invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
 adapter: Daml/Canton.
 
-## Status: deterministic foundation — no agent yet
+## Status: bounded model runtime substrate — no analysis yet
 
-There is no agent loop, no model client, and no evaluation. What exists today is the governance and
+There is no security analysis, no generated test, and no evaluation. The model runtime exists but has
+no prompts to run: nothing in this repository has yet asked a model to look at Daml code, and no live
+provider request has been made. What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
 allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
 oracle proving the defect on the real toolchain:
@@ -27,6 +29,14 @@ Evidence is the substrate the later agent will be held to, not the agent itself.
 invocation is dispatched through one function that appends a record capturing the argv, working
 directory, exit code and output digests, addressed by a host-allocated identifier; refusals are
 recorded as refusals. Redaction runs before anything is written to disk.
+
+Also implemented: the bounded host-controlled model runtime substrate — a Messages API client, tool
+plumbing that routes provider `tool_use` blocks through that same evidence-backed dispatch, per-run
+usage accounting from provider-reported numbers only, a manual loop with host-owned turn and
+tool-call budgets, the fixed phase state machine, and Zod artifact validation with a bounded retry
+budget that marks a phase degraded rather than looping. The Agent SDK is not used, and no
+provider-side shell, file-editor, web or code-execution tool is registered. The model is a
+participant in this loop, never its controller.
 
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 

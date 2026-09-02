@@ -138,13 +138,13 @@ fixture and the agent sharing a misconception.
 
 **Purpose**: Connect the untrusted model under host-enforced budgets.
 
-- [ ] T044 [US1] Implement the model client in `src/model/client.ts` over the Messages API, reading the SDK's installed types for the current structured-output and strict-tool field names rather than assuming them, with retry and with no environment variables or secrets in any prompt
-- [ ] T045 [US1] Implement tool-call plumbing in `src/model/tools.ts`, validating every model-supplied parameter set against its schema before dispatch and rejecting unlisted tools
-- [ ] T046 [US1] Implement per-run usage accounting in `src/model/usage.ts`, recording input, output, and cache token counts plus tool invocation counts
-- [ ] T047 [US1] Implement the bounded model/tool loop in `src/agent/loop.ts` with explicit maximum turns and maximum tool calls, logging every iteration as evidence
-- [ ] T048 [US1] Implement the host-owned phase state machine in `src/agent/phases.ts`, enforcing the fixed order and gating each transition on a schema-valid artifact, with the model unable to reorder, skip, or re-enter phases
-- [ ] T049 [US1] Implement artifact validation with a bounded retry budget in `src/agent/validate.ts`, marking a phase degraded rather than looping when the budget is exhausted
-- [ ] T050 [US1] Unit-test in `tests/unit/loop.test.ts`, with the process boundary mocked, that budgets terminate the loop and that invalid artifacts do not advance a phase
+- [x] T044 [US1] Implement the model client in `src/model/client.ts` over the Messages API, reading the SDK's installed types for the current structured-output and strict-tool field names rather than assuming them, with retry and with no environment variables or secrets in any prompt
+- [x] T045 [US1] Implement tool-call plumbing in `src/model/tools.ts`, validating every model-supplied parameter set against its schema before dispatch and rejecting unlisted tools
+- [x] T046 [US1] Implement per-run usage accounting in `src/model/usage.ts`, recording input, output, and cache token counts plus tool invocation counts
+- [x] T047 [US1] Implement the bounded model/tool loop in `src/agent/loop.ts` with explicit maximum turns and maximum tool calls. Tool calls are recorded as evidence through the Phase 6 dispatch path; model turns are recorded in a host-owned `LoopTranscript` rather than forced into the tool-invocation evidence schema, which has no honest values for argv, exit code, or output digest when nothing was executed
+- [x] T048 [US1] Implement the host-owned phase state machine in `src/agent/phases.ts`, enforcing the fixed order and gating each transition on a schema-valid artifact, with the model unable to reorder, skip, or re-enter phases
+- [x] T049 [US1] Implement artifact validation with a bounded retry budget in `src/agent/validate.ts`, marking a phase degraded rather than looping when the budget is exhausted
+- [x] T050 [US1] Unit-test in `tests/unit/loop.test.ts`, with the provider mocked by a deterministic fake `ModelClient` and no live request, that budgets terminate the loop and that invalid artifacts do not advance a phase
 
 **Checkpoint**: A bounded, host-controlled loop runs with the model as an untrusted participant.
 
