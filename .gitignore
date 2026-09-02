@@ -1,16 +1,14 @@
-# macOS
-.DS_Store
-
-# Node
 node_modules/
 dist/
-coverage/
-*.log
-
-# Secrets
-.env
-.env.local
-
-# Agent runtime output
-artifacts/
 runs/
+
+.env
+.env.*
+!.env.example
+
+**/.daml/
+*.dar
+
+.DS_Store
+*.log
+coverage/

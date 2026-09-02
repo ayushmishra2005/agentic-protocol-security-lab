@@ -37,7 +37,8 @@ model turns, maximum tool invocations, maximum revision attempts, and a per-proc
 reference, a verified two-package build takes ~5s and a Script suite ~10s, so per-fixture wall time is
 dominated by model latency rather than the toolchain.
 
-**Constraints**: No network during analysis or evaluation. No arbitrary shell. All filesystem access
+**Constraints**: No network-capable tool is exposed to the model and no target repository can trigger
+egress; the only outbound path is host-initiated model-provider inference traffic. No arbitrary shell. All filesystem access
 confined to a resolved workspace root. Model writes confined to a run-scoped generated-test
 directory. Secrets never enter prompts, artifacts, or logs.
 
@@ -92,7 +93,7 @@ the scorer and tool wrappers consume structured XML and JSON, never scraped huma
 | II. Allowlisted execution | Fixed executable paths, explicit argv allowlists, model supplies parameters only, path confinement enforced pre-spawn | PASS |
 | III. Tests authoritative | Confirmation state gated on real compile/execute results; JUnit XML and exit codes are the signal | PASS |
 | IV. Host-owned eval | Scorer, expectations, and oracles are host code and reviewed files; read-only to the model during a run | PASS |
-| V. Untrusted inputs | Target text framed as data; no network tools registered; secret redaction before capture is persisted | PASS |
+| V. Untrusted inputs | Target text framed as data; no network-capable tool registered and no target-reachable egress, with host-initiated provider inference as the only outbound path; secret redaction before capture is persisted | PASS |
 | VI. Adapter honesty | Scope fixed at language-level Daml semantics on a pinned toolchain; boundary statement required in output | PASS |
 | VII. Simplicity | One process, one state machine, one adapter; prohibited technologies listed below and not introduced | PASS |
 | VIII. Skills to authoritative sources | Toolchain surface derived from installed CLI help, not model memory; no third-party skill text copied | PASS |

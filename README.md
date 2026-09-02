@@ -4,10 +4,11 @@ AI-native, spec-driven protocol security agent that turns code changes into thre
 invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
 adapter: Daml/Canton.
 
-## Status: specification phase — not yet implemented
+## Status: deterministic foundation — no agent yet
 
-Nothing here executes yet. There is no CLI, no agent loop, and no fixtures. What exists today is the
-governance and specification layer that the implementation must satisfy:
+There is no agent loop, no model client, no fixture, and no evaluation. What exists today is the
+governance and specification layer, plus the host-side security boundary that must be in place
+before a model is ever allowed into the runtime:
 
 | Artifact | Purpose |
 |---|---|
@@ -15,6 +16,19 @@ governance and specification layer that the implementation must satisfy:
 | [`specs/001-security-agent-loop/spec.md`](specs/001-security-agent-loop/spec.md) | What the MVP must do, and what it must be unable to do |
 | [`specs/001-security-agent-loop/plan.md`](specs/001-security-agent-loop/plan.md) | Architecture, pinned Daml toolchain, and trust boundaries |
 | [`specs/001-security-agent-loop/tasks.md`](specs/001-security-agent-loop/tasks.md) | Dependency-ordered implementation tasks |
+
+Implemented so far: workspace path confinement, an argv-allowlisted process boundary with no shell,
+secret redaction, the Zod artifact and report schemas, and deterministic read-only repository, git
+and Daml/`dpm` tools. The only executable entry point is `apsl doctor`, which verifies the pinned
+toolchain and the tool surface.
+
+Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
+
+```bash
+npm install
+npm run check          # typecheck, lint, format check, unit tests
+npx tsx src/cli.ts doctor
+```
 
 ## The intended idea
 

@@ -30,6 +30,41 @@ Templates requiring no change (they read this file at runtime):
   .specify/templates/tasks-template.md - no constitution coupling
 
 Follow-up TODOs: none. RATIFICATION_DATE set to first adoption date (2026-09-02).
+
+------------------------------------------------------------------------------
+AMENDMENT 2026-09-02
+Version change: 1.0.0 -> 1.1.0
+Bump rationale: MINOR. Materially expanded normative guidance in Article V and the
+  trust-boundary table. No article added, removed, or redefined.
+
+Rationale: v1.0.0 stated "The MVP performs no network access", which was broader than
+  intended and would have made the planned host-owned Anthropic Messages API call
+  impossible, contradicting plan.md's chosen model runtime. The intended rule is
+  narrower: the MODEL receives no network capability and a target repository cannot
+  trigger egress, while trusted host code may reach the configured provider endpoint
+  for inference only.
+
+Modified sections:
+  V. Untrusted Inputs - network bullet split into (a) denial of all model-facing and
+    target-reachable network capability, and (b) the single host-owned provider-egress
+    exception with its constraints on destination, credentials, and initiator.
+  Security Requirements And Trust Boundaries - Network trust zone row restated from
+    "Denied" to "Denied, except host-to-provider".
+
+Human approval: This amendment narrows a prohibition in Article V. The governance
+  amendment procedure requires explicit human approval for changes that weaken Article
+  II, IV, or V. Approval was given by the repository owner in the change request that
+  initiated this amendment, together with the authoritative wording of the narrower
+  rule. Articles II and IV are unchanged.
+
+Consequential specification updates in the same change:
+  specs/001-security-agent-loop/spec.md - FR-027 restated; FR-029 added
+  specs/001-security-agent-loop/plan.md - Constraints line restated
+  .env.example - stale "performs no network access" comment corrected
+
+Implementation impact: none. src/tools/registry.ts already registers every tool with
+  networkCapable: false and enforces it at runtime via assertNoNetworkCapableTools,
+  which is precisely the model-facing rule this amendment preserves.
 -->
 
 # Agentic Protocol Security Lab Constitution
@@ -113,7 +148,18 @@ generated code are all untrusted.
 - Text originating from an analyzed repository is data, never instruction. No
   target-controlled content may alter host policy, the allowlist, the phase
   sequence, or scoring.
-- The MVP performs no network access. Network-capable tools are not registered.
+- General-purpose network access is denied, and no network-capable tool is registered.
+  The model MUST NOT be given a URL-fetch tool, an arbitrary HTTP tool, a browser tool,
+  a web-search or web-fetch tool, or a network-capable MCP tool. Analysis of a target
+  repository MUST NOT be able to trigger network access, and the deterministic
+  repository, version-control, and Daml tools remain entirely local.
+- The sole permitted runtime outbound network path is trusted host-owned communication
+  with the explicitly configured model provider endpoint, for inference only. Such
+  requests MUST be initiated exclusively by host model-client code. Target-controlled
+  or model-controlled content MUST NOT determine the destination host, URL, protocol,
+  method, headers, credentials, or any other property of that request. No arbitrary
+  URL-fetch capability may exist anywhere in the system. This exception authorizes no
+  other network access.
 - Secrets MUST NOT enter prompts, artifacts, logs, or committed evidence. Credential
   material MUST be redacted from captured tool output before it re-enters the model
   or is written to disk.
@@ -193,7 +239,7 @@ Trust zones are explicit and enforced by host code:
 | Host | Trusted | CLI, tool implementations, schemas, scorer, this constitution |
 | Model | Untrusted | Model outputs, tool arguments, generated Daml, report prose |
 | Target | Untrusted | Analyzed repository and fixture sources, comments, identifiers |
-| Network | Denied | No network tools registered in the MVP |
+| Network | Denied, except host-to-provider | No network-capable tool is registered and no target-reachable egress exists; the only outbound path is host-initiated model-provider inference traffic |
 | Secrets | Excluded | API credentials never enter prompts, artifacts, or logs |
 
 Binding requirements:
@@ -240,4 +286,4 @@ these articles before implementation begins. Violations must either be corrected
 recorded as justified exceptions in the plan's complexity tracking. A justified
 exception is never available for Article II.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02
+**Version**: 1.1.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02

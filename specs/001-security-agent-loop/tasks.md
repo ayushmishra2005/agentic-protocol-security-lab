@@ -49,15 +49,15 @@ source of truth for the Daml surface.
 
 **Purpose**: A runnable, type-checked, lint-clean project with no product logic yet.
 
-- [ ] T005 Initialize `package.json` with TypeScript, Zod, `@anthropic-ai/sdk`, a CLI parser, and a test runner; set `engines` to Node 22
-- [ ] T006 [P] Pin the Node version in `.nvmrc`
-- [ ] T007 [P] Configure TypeScript in `tsconfig.json` with strict mode enabled
-- [ ] T008 [P] Configure linting and formatting
-- [ ] T009 [P] Add `.gitignore` covering `runs/`, `node_modules/`, `.env`, and `**/.daml/`
-- [ ] T010 [P] Add `.env.example` documenting the API key variable name with a placeholder value only, never a real credential
-- [ ] T011 Create the directory skeleton under `src/` per plan.md with placeholder module entry points
-- [ ] T012 Add `src/config.ts` resolving the pinned `dpm` executable by absolute path (not ambient PATH) with a `DPM_BIN` override, asserting SDK 3.5.5 at startup, and pinning the model identifier with an environment override
-- [ ] T013 Add a CI workflow running install, type-check, lint, and unit tests
+- [x] T005 Initialize `package.json` with TypeScript, Zod, `@anthropic-ai/sdk`, a CLI parser, and a test runner; set `engines` to Node 22
+- [x] T006 [P] Pin the Node version in `.nvmrc`
+- [x] T007 [P] Configure TypeScript in `tsconfig.json` with strict mode enabled
+- [x] T008 [P] Configure linting and formatting
+- [x] T009 [P] Add `.gitignore` covering `runs/`, `node_modules/`, `.env`, and `**/.daml/`
+- [x] T010 [P] Add `.env.example` documenting the API key variable name with a placeholder value only, never a real credential
+- [x] T011 Create the directory skeleton under `src/` per plan.md with placeholder module entry points
+- [x] T012 Add `src/config.ts` resolving the pinned `dpm` executable by absolute path (not ambient PATH) with a `DPM_BIN` override, asserting SDK 3.5.5 at startup, and pinning the model identifier with an environment override
+- [x] T013 Add a CI workflow running install, type-check, lint, and unit tests
 
 **Checkpoint**: `npm run build` and `npm test` pass on an empty project.
 
@@ -70,16 +70,16 @@ a tool. Nothing downstream may bypass these modules.
 
 **CRITICAL**: No tool, model, or agent work may begin until this phase is complete.
 
-- [ ] T014 [P] Define phase artifact schemas in `src/schemas/phases.ts` (one Zod schema per phase in the fixed sequence)
-- [ ] T015 [P] Define finding, invariant, and evidence-reference schemas in `src/schemas/findings.ts`, making evidence references structurally required for any finding whose state is confirmed
-- [ ] T016 [P] Define the report schema in `src/schemas/report.ts`
-- [ ] T017 [P] Define the fixture expectation schema in `src/schemas/expected.ts`, including an explicit `allowed_extra_classes` set used to distinguish false positives
-- [ ] T018 Implement path confinement in `src/security/paths.ts`: resolve, follow symlinks, and reject any path escaping the workspace root
-- [ ] T019 Implement the argv allowlist and process spawn in `src/security/exec.ts`: fixed executable paths, explicit permitted flags, timeouts, output size caps, no shell interpolation
-- [ ] T020 Implement secret redaction in `src/security/redact.ts`, applied to all captured output before it is persisted or returned to the model
-- [ ] T021 [P] Unit-test path confinement in `tests/unit/paths.test.ts` — negative cases: `..` traversal, absolute escape, symlink escape
-- [ ] T022 [P] Unit-test the allowlist in `tests/unit/exec.test.ts` — negative cases: unlisted executable, unlisted flag, injected shell metacharacters, timeout enforcement
-- [ ] T023 [P] Unit-test that a confirmed finding without evidence references fails schema validation, in `tests/unit/schemas.test.ts`
+- [x] T014 [P] Define phase artifact schemas in `src/schemas/phases.ts` (one Zod schema per phase in the fixed sequence)
+- [x] T015 [P] Define finding, invariant, and evidence-reference schemas in `src/schemas/findings.ts`, making evidence references structurally required for any finding whose state is confirmed
+- [x] T016 [P] Define the report schema in `src/schemas/report.ts`
+- [x] T017 [P] Define the fixture expectation schema in `src/schemas/expected.ts`, including an explicit `allowed_extra_classes` set used to distinguish false positives
+- [x] T018 Implement path confinement in `src/security/paths.ts`: resolve, follow symlinks, and reject any path escaping the workspace root
+- [x] T019 Implement the argv allowlist and process spawn in `src/security/exec.ts`: fixed executable paths, explicit permitted flags, timeouts, output size caps, no shell interpolation
+- [x] T020 Implement secret redaction in `src/security/redact.ts`, applied to all captured output before it is persisted or returned to the model
+- [x] T021 [P] Unit-test path confinement in `tests/unit/paths.test.ts` — negative cases: `..` traversal, absolute escape, symlink escape
+- [x] T022 [P] Unit-test the allowlist in `tests/unit/exec.test.ts` — negative cases: unlisted executable, unlisted flag, injected shell metacharacters, timeout enforcement
+- [x] T023 [P] Unit-test that a confirmed finding without evidence references fails schema validation, in `tests/unit/schemas.test.ts`
 
 **Checkpoint**: Confinement and allowlisting are enforced and negatively tested. Article II holds.
 
@@ -89,15 +89,15 @@ a tool. Nothing downstream may bypass these modules.
 
 **Purpose**: The deterministic tools the model may call, each routed through Phase 3 primitives.
 
-- [ ] T024 [P] Implement bounded repository reads in `src/tools/repo/read.ts` with size and count limits
-- [ ] T025 [P] Implement bounded listing and search in `src/tools/repo/list.ts`
-- [ ] T026 [P] Implement bounded read-only version-control inspection in `src/tools/git/inspect.ts` using fixed argv forms
-- [ ] T027 Implement `dpm build` wrapper in `src/tools/daml/build.ts`, capturing exit code and diagnostics
-- [ ] T028 Implement `dpm test` wrapper in `src/tools/daml/test.ts` using `--junit` and parsing the JUnit XML, not human stdout
-- [ ] T029 [P] Implement `dpm inspect-dar --json` wrapper in `src/tools/daml/inspect.ts`
-- [ ] T030 [P] Implement `dpm script` wrapper in `src/tools/daml/script.ts` using `--ide-ledger` and `--list-scripts-json`
-- [ ] T031 Define the model-facing tool registry in `src/tools/registry.ts`, exposing parameter schemas only — never command strings — registering no network-capable tool and no third-party MCP tool
-- [ ] T032 [P] Unit-test JUnit XML parsing in `tests/unit/junit.test.ts`, covering pass, failure, and malformed input
+- [x] T024 [P] Implement bounded repository reads in `src/tools/repo/read.ts` with size and count limits
+- [x] T025 [P] Implement bounded listing and search in `src/tools/repo/list.ts`
+- [x] T026 [P] Implement bounded read-only version-control inspection in `src/tools/git/inspect.ts` using fixed argv forms
+- [x] T027 Implement `dpm build` wrapper in `src/tools/daml/build.ts`, capturing exit code and diagnostics
+- [x] T028 Implement `dpm test` wrapper in `src/tools/daml/test.ts` using `--junit` and parsing the JUnit XML, not human stdout
+- [x] T029 [P] Implement `dpm inspect-dar --json` wrapper in `src/tools/daml/inspect.ts`
+- [x] T030 [P] Implement `dpm script` wrapper in `src/tools/daml/script.ts` using `--ide-ledger` and `--list-scripts-json`
+- [x] T031 Define the model-facing tool registry in `src/tools/registry.ts`, exposing parameter schemas only — never command strings — registering no network-capable tool and no third-party MCP tool
+- [x] T032 [P] Unit-test JUnit XML parsing in `tests/unit/junit.test.ts`, covering pass, failure, and malformed input
 
 **Checkpoint**: Every tool the model can reach is deterministic, bounded, and structured-output based.
 

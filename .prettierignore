@@ -1,0 +1,10 @@
+node_modules/
+dist/
+runs/
+coverage/
+.specify/
+.cursor/
+package-lock.json
+
+# Authored prose is formatted by hand, not reflowed by a code formatter.
+**/*.md

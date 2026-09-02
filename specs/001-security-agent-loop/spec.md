@@ -186,8 +186,17 @@ documented commands, and can trace at least one report conclusion to a recorded 
   validated parameters are available to it.
 - **FR-025**: Generated test failures MUST be observable by the workflow and recorded as evidence.
 - **FR-026**: Compilation and test failures MUST be capable of triggering a bounded revision.
-- **FR-027**: The system MUST NOT perform network access during analysis or evaluation.
+- **FR-027**: The system MUST NOT expose any network-capable tool to the model. No URL-fetch,
+  arbitrary HTTP, browser, web-search, web-fetch, or network-capable MCP capability may be
+  registered, and analysing a target repository MUST NOT be able to trigger network access. The
+  deterministic repository, version-control, and Daml tools MUST operate entirely locally.
 - **FR-028**: Secrets MUST NOT appear in prompts, artifacts, logs, or committed evidence.
+- **FR-029**: The only permitted runtime outbound network path is host-owned communication with the
+  explicitly configured model provider endpoint, for inference only. Such requests MUST be initiated
+  solely by trusted host model-client code; target-controlled or model-controlled content MUST NOT
+  determine the destination host, URL, protocol, method, headers, or credentials; and provider
+  credentials MUST NOT appear in model-visible content, tool evidence, reports, or any
+  target-controlled execution. This exception authorises no other network access.
 
 ### Key Entities
 
