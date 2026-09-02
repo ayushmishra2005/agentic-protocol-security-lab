@@ -55,7 +55,6 @@ after(() => {
 
 describe('read policy', () => {
   const denied = [
-    'fixtures/f00/expected.json',
     'src/eval/scorer.ts',
     '.env',
     'server.pem',
@@ -75,6 +74,16 @@ describe('read policy', () => {
 
   it('allows ordinary source files', () => {
     assert.equal(isReadable(workspace, path.join(workspace.root, 'main/daml/Asset.daml')), true);
+  });
+
+  it('does not treat the basename expected.json as inherently secret', () => {
+    // A user's own project may legitimately contain a file by this name, and it
+    // is not ours to withhold from them. Keeping a benchmark expectation away
+    // from an evaluated model is the job of the evaluation view, which supplies
+    // a target directory that does not contain it.
+    const relative = 'fixtures/f00/expected.json';
+    assert.equal(isReadable(workspace, path.join(workspace.root, relative)), true);
+    assert.match(readFileBounded(workspace, relative).content, /leak/);
   });
 });
 
@@ -125,14 +134,9 @@ describe('listFiles', () => {
     const result = listFiles(workspace);
     assert.ok(result.files.includes(path.join('main', 'daml', 'Asset.daml')));
     assert.ok(result.files.includes('README.md'));
-    for (const denied of [
-      'expected.json',
-      'scorer.ts',
-      '.env',
-      'server.pem',
-      'index.js',
-      'config',
-    ]) {
+    // Listed, because the name carries no meaning to this policy.
+    assert.ok(result.files.includes(path.join('fixtures', 'f00', 'expected.json')));
+    for (const denied of ['scorer.ts', '.env', 'server.pem', 'index.js', 'config']) {
       assert.ok(
         !result.files.some((file) => path.basename(file) === denied),
         `${denied} must not be listed`,
@@ -185,7 +189,8 @@ describe('searchText', () => {
   });
 
   it('never matches inside a denied file', () => {
-    assert.equal(searchText(workspace, 'leak').matches.length, 0);
+    // `scorer` appears only in src/eval/, which is host-only.
+    assert.equal(searchText(workspace, 'scorer').matches.length, 0);
   });
 
   it('bounds the number of matches', () => {

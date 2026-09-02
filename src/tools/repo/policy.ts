@@ -1,10 +1,21 @@
 /**
  * Read policy for the generic, model-facing repository tools.
  *
- * Two categories are denied. Credential-bearing files are denied because of
- * Article V. Fixture expectations and scorer sources are denied because of
- * Article IV: if the model could read `expected.json`, an evaluation would
- * measure recall of a supplied answer rather than analysis.
+ * What is denied here is denied for every target, so the bar is that the path
+ * is dangerous or host-owned regardless of whose repository it belongs to:
+ * credential-bearing files under Article V, build and dependency directories
+ * that are noise rather than source, and `src/eval/`, which is this project's
+ * own host-only benchmark code.
+ *
+ * Fixture expectations are deliberately *not* handled here. Keeping a
+ * `expected.json` benchmark file away from the evaluated model is a property of
+ * the evaluation view — the host builds a target view containing only the
+ * material the model is meant to see (see `src/eval/analysisView.ts`) — rather
+ * than a property of the name. Denying the basename globally would have meant
+ * that a user analysing their own project could not read their own
+ * `expected.json`, which has nothing to do with our benchmark, while doing
+ * nothing about a benchmark answer stored under any other name. Article IV is
+ * about what the evaluated model is given, not about a filename.
  */
 import path from 'node:path';
 
@@ -16,7 +27,6 @@ export class RepoPolicyError extends Error {
 
 /** Exact file names never returned to a caller. */
 const DENIED_BASENAMES: ReadonlySet<string> = new Set([
-  'expected.json',
   '.env',
   '.npmrc',
   'id_rsa',

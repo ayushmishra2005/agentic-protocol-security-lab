@@ -105,7 +105,15 @@ export type ValidationRunOutcome<P extends ModelPhase> =
 export async function validateWithRetry<P extends ModelPhase>(
   phase: P,
   produce: (attempt: number, previousIssues: readonly string[]) => Promise<unknown>,
-  options: { readonly maxAttempts?: number } = {},
+  options: {
+    readonly maxAttempts?: number;
+    /**
+     * Host checks that a schema cannot express. Zod can confirm an evidence
+     * identifier is well-formed, but only the evidence store knows whether it
+     * resolves, so that check runs here and its issues share the same budget.
+     */
+    readonly additionalChecks?: (artifact: unknown) => readonly string[];
+  } = {},
 ): Promise<ValidationRunOutcome<P>> {
   const maxAttempts = options.maxAttempts ?? MODEL_LOOP_DEFAULTS.maxValidationAttempts;
   if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) {
@@ -117,10 +125,17 @@ export async function validateWithRetry<P extends ModelPhase>(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const candidate = await produce(attempt, issues);
     const outcome = validateArtifact(phase, candidate);
-    if (outcome.ok) {
+    if (!outcome.ok) {
+      issues = outcome.issues;
+      continue;
+    }
+
+    const extra = options.additionalChecks?.(outcome.artifact) ?? [];
+    if (extra.length === 0) {
       return { status: 'valid', artifact: outcome.artifact };
     }
-    issues = outcome.issues;
+    // Schema-valid but rejected by a host check. It does not advance the phase.
+    issues = extra.slice(0, MAX_ISSUES).map((issue) => redact(issue).slice(0, MAX_ISSUE_CHARS));
   }
 
   return { status: 'degraded', attempts: maxAttempts, issues };

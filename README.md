@@ -4,11 +4,11 @@ AI-native, spec-driven protocol security agent that turns code changes into thre
 invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
 adapter: Daml/Canton.
 
-## Status: bounded model runtime substrate — no analysis yet
+## Status: analysis phases implemented — no test generation, execution or evaluation yet
 
-There is no security analysis, no generated test, and no evaluation. The model runtime exists but has
-no prompts to run: nothing in this repository has yet asked a model to look at Daml code, and no live
-provider request has been made. What exists today is the governance and
+The pipeline stops where the interesting part begins. Nothing here generates a Daml test, runs one,
+scores anything, or has made a live provider request; every model interaction so far is a
+deterministic fake in a test. What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
 allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
 oracle proving the defect on the real toolchain:
@@ -37,6 +37,14 @@ tool-call budgets, the fixed phase state machine, and Zod artifact validation wi
 budget that marks a phase degraded rather than looping. The Agent SDK is not used, and no
 provider-side shell, file-editor, web or code-execution tool is registered. The model is a
 participant in this loop, never its controller.
+
+Built on that: the first six validated, evidence-linked analysis phases — understand, inspect,
+threat model, invariants, auth semantics and scenarios — each with a host-authored objective and a
+schema its output must satisfy. The model is not handed the repository; it has to request source
+through the allowlisted tools, and an artifact citing an evidence identifier that does not resolve to
+a real recorded invocation is rejected rather than accepted on trust. Target-derived text is fenced
+as untrusted data and never enters the trusted prefix. The phases end at candidate misuse scenarios:
+attempts worth testing, not results, since nothing has been executed against a ledger.
 
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 

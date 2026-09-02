@@ -154,12 +154,12 @@ fixture and the agent sharing a misconception.
 
 **Purpose**: The first six phases produce real, validated artifacts.
 
-- [ ] T051 [US1] Implement `understand` and `inspect` phases in `src/agent/steps/understand.ts`, driving repository and version-control tools
-- [ ] T052 [US1] Implement `threat_model` in `src/agent/steps/threatModel.ts`
-- [ ] T053 [US1] Implement `invariants` in `src/agent/steps/invariants.ts`, emitting invariants concrete enough for a test to target
-- [ ] T054 [US1] Implement `auth_semantics` in `src/agent/steps/authSemantics.ts`, examining signatories, observers, controllers, and choice structure
-- [ ] T055 [US1] Implement `scenarios` in `src/agent/steps/scenarios.ts`, enumerating candidate misuse scenarios
-- [ ] T056 [US1] Implement prompt construction in `src/agent/prompt.ts`: frame all target-derived text as untrusted data, and keep target source out of any cached prefix so that no target content can alter host policy, phase order, or the allowlist
+- [x] T051 [US1] Implement `understand` and `inspect` phases in `src/agent/steps/understand.ts`, driving repository and version-control tools
+- [x] T052 [US1] Implement `threat_model` in `src/agent/steps/threatModel.ts`
+- [x] T053 [US1] Implement `invariants` in `src/agent/steps/invariants.ts`, emitting invariants concrete enough for a test to target
+- [x] T054 [US1] Implement `auth_semantics` in `src/agent/steps/authSemantics.ts`, examining signatories, observers, controllers, and choice structure
+- [x] T055 [US1] Implement `scenarios` in `src/agent/steps/scenarios.ts`, enumerating candidate misuse scenarios
+- [x] T056 [US1] Implement prompt construction in `src/agent/prompt.ts`: frame all target-derived text as untrusted data, and keep target source out of any cached prefix so that no target content can alter host policy, phase order, or the allowlist
 - [ ] T057 [US1] If a host-side template/signatory/observer/controller extractor is implemented in `src/tools/daml/extract.ts`, label its output as a heuristic wherever it appears, and never as authoritative parsing
 - [ ] T058 [US1] Add an injection-resistance test in `tests/unit/injection.test.ts`: a fixture source containing instruction-like text must not change host behavior
 
