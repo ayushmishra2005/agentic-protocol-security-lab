@@ -56,6 +56,23 @@ const RULES: readonly RedactionRule[] = [
   },
 ];
 
+/**
+ * Field names whose value is a credential regardless of how the value looks.
+ *
+ * The rules above are line-oriented: they recognise `TOKEN=abc` because the
+ * name and the value sit in one string. In structured data the name and the
+ * value are separate strings, so `{"password": "hunter2"}` matches nothing —
+ * `hunter2` on its own is not credential-shaped. Callers persisting structured
+ * data use this to redact by field name instead.
+ */
+const SECRET_KEY_PATTERN =
+  /(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|AUTHORIZATION|PRIVATE[_-]?KEY)/i;
+
+/** True when a field of this name should have its value redacted wholesale. */
+export function isSecretKeyName(key: string): boolean {
+  return SECRET_KEY_PATTERN.test(key);
+}
+
 /** Redact credential-shaped substrings. Returns the input unchanged when clean. */
 export function redact(input: string): string {
   if (input.length === 0) return input;

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -49,13 +50,24 @@ describe('resolveExecutable', () => {
   });
 });
 
+// `resolveExecutable` canonicalises through `realpath`, so the resolved path is
+// not required to equal the path that was passed in. On a usr-merged Linux
+// distribution `/bin` is a symlink to `usr/bin`, so `/bin/echo` canonicalises to
+// `/usr/bin/echo`; on macOS `/bin` is a real directory and it does not. The
+// expectation is therefore stated against the canonical form of the override.
+const OVERRIDE_BIN = '/bin/echo';
+const OVERRIDE_BIN_CANONICAL = fs.realpathSync(OVERRIDE_BIN);
+
 describe('environment overrides', () => {
   it('honours DPM_BIN instead of the default location', () => {
-    assert.equal(resolveDpmExecutable({ DPM_BIN: '/bin/echo' }), '/bin/echo');
+    assert.equal(resolveDpmExecutable({ DPM_BIN: OVERRIDE_BIN }), OVERRIDE_BIN_CANONICAL);
   });
 
   it('honours GIT_BIN instead of the default location', () => {
-    assert.equal(resolveGitExecutable({ GIT_BIN: '/bin/echo' }), '/bin/echo');
+    const resolved = resolveGitExecutable({ GIT_BIN: OVERRIDE_BIN });
+    assert.equal(resolved, OVERRIDE_BIN_CANONICAL);
+    // The override must actually displace the default, not merely coexist with it.
+    assert.notEqual(resolved, resolveGitExecutable({}));
   });
 
   it('rejects a relative DPM_BIN override', () => {

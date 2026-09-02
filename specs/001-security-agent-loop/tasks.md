@@ -125,10 +125,10 @@ fixture and the agent sharing a misconception.
 
 **Purpose**: Article I's substrate — the thing evidence IDs resolve to.
 
-- [ ] T040 [US1] Implement the append-only evidence store in `src/evidence/store.ts`, recording argv, working directory, exit code, and captured output per invocation
-- [ ] T041 [US1] Implement evidence ID allocation and resolution in `src/evidence/ids.ts`
-- [ ] T042 [US1] Route every tool in `src/tools/` through the evidence store so no invocation can occur unrecorded
-- [ ] T043 [US1] Unit-test in `tests/unit/evidence.test.ts` that records are append-only, that IDs resolve, and that redaction is applied before persistence
+- [x] T040 [US1] Implement the append-only evidence store in `src/evidence/store.ts`, recording argv, working directory, exit code, and captured output per invocation
+- [x] T041 [US1] Implement evidence ID allocation and resolution in `src/evidence/ids.ts`
+- [x] T042 [US1] Route every tool in `src/tools/` through the evidence store so no invocation can occur unrecorded, via the single `src/tools/dispatch.ts` entry point
+- [x] T043 [US1] Unit-test in `tests/unit/evidence.test.ts` that records are append-only, that IDs resolve, and that redaction is applied before persistence
 
 **Checkpoint**: Every tool invocation is recorded and addressable.
 

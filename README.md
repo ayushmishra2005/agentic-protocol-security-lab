@@ -13,15 +13,20 @@ oracle proving the defect on the real toolchain:
 
 | Artifact | Purpose |
 |---|---|
-| [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Ratified project constitution (v1.0.0) — the binding trust and evidence rules |
+| [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Ratified project constitution (v1.1.1) — the binding trust and evidence rules |
 | [`specs/001-security-agent-loop/spec.md`](specs/001-security-agent-loop/spec.md) | What the MVP must do, and what it must be unable to do |
 | [`specs/001-security-agent-loop/plan.md`](specs/001-security-agent-loop/plan.md) | Architecture, pinned Daml toolchain, and trust boundaries |
 | [`specs/001-security-agent-loop/tasks.md`](specs/001-security-agent-loop/tasks.md) | Dependency-ordered implementation tasks |
 
 Implemented so far: workspace path confinement, an argv-allowlisted process boundary with no shell,
-secret redaction, the Zod artifact and report schemas, and deterministic read-only repository, git
-and Daml/`dpm` tools. The only executable entry point is `apsl doctor`, which verifies the pinned
-toolchain and the tool surface.
+secret redaction, the Zod artifact and report schemas, deterministic read-only repository, git and
+Daml/`dpm` tools, and the append-only evidence store those tools now record through. The only
+executable entry point is `apsl doctor`, which verifies the pinned toolchain and the tool surface.
+
+Evidence is the substrate the later agent will be held to, not the agent itself. Every tool
+invocation is dispatched through one function that appends a record capturing the argv, working
+directory, exit code and output digests, addressed by a host-allocated identifier; refusals are
+recorded as refusals. Redaction runs before anything is written to disk.
 
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 
