@@ -114,6 +114,12 @@ export interface PhasePromptInput {
   readonly priorArtifacts?: readonly { readonly phase: ModelPhase; readonly artifact: unknown }[];
   /** Quoted target text, if any. Fenced as untrusted. */
   readonly targetExcerpts?: readonly { readonly label: string; readonly text: string }[];
+  /**
+   * Additional trusted host text for this phase, such as the reason the host
+   * ordered a revision and the diagnostics behind it. Host-authored: never a
+   * place to put target content.
+   */
+  readonly hostContext?: string;
   /** Sanitised schema issues from a previous rejected attempt. */
   readonly previousIssues?: readonly string[];
   readonly fence?: UntrustedFence;
@@ -165,6 +171,10 @@ export function buildPhasePrompt(input: PhasePromptInput): PhasePrompt {
       `Validated artifact from the ${prior.phase} phase (host-verified, trusted):`,
       JSON.stringify(prior.artifact),
     );
+  }
+
+  if (input.hostContext !== undefined && input.hostContext.length > 0) {
+    sections.push('', input.hostContext);
   }
 
   for (const excerpt of input.targetExcerpts ?? []) {

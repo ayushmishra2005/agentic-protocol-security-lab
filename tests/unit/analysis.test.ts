@@ -15,8 +15,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, describe, it } from 'node:test';
 
-import type { ContentBlock, Message, Usage } from '@anthropic-ai/sdk/resources/messages';
-
+import {
+  evidenceIdsFrom,
+  promptText,
+  ScriptedClient,
+  textBlock,
+  toolUseBlock,
+  type TurnScript,
+} from '../helpers/fakeModel.js';
 import { PhaseMachine } from '../../src/agent/phases.js';
 import {
   buildPhasePrompt,
@@ -40,7 +46,6 @@ import {
 import { PhaseStepError } from '../../src/agent/steps/runPhase.js';
 import { createAnalysisView, type AnalysisView } from '../../src/eval/analysisView.js';
 import { EvidenceStore } from '../../src/evidence/store.js';
-import type { ModelClient, ModelRequest } from '../../src/model/client.js';
 import { buildProviderTools } from '../../src/model/tools.js';
 import { MODEL_PHASE_SEQUENCE, type ModelPhase } from '../../src/schemas/phases.js';
 import { createWorkspace } from '../../src/security/paths.js';
@@ -100,74 +105,6 @@ function makeTarget(): { root: string; context: ToolContext } {
 after(() => {
   for (const root of tempRoots) fs.rmSync(root, { recursive: true, force: true });
 });
-
-// --- deterministic fake provider -------------------------------------------
-
-function usage(): Usage {
-  return {
-    input_tokens: 10,
-    output_tokens: 5,
-    cache_creation_input_tokens: null,
-    cache_read_input_tokens: null,
-    cache_creation: null,
-    inference_geo: null,
-  } as Usage;
-}
-
-function textBlock(text: string): ContentBlock {
-  return { type: 'text', text, citations: null };
-}
-
-function toolUseBlock(id: string, name: string, input: unknown): ContentBlock {
-  return { type: 'tool_use', id, name, input, caller: { type: 'direct' } };
-}
-
-interface FakeTurn {
-  readonly content: ContentBlock[];
-  readonly stopReason?: Message['stop_reason'];
-}
-
-/** A turn computed from the request, so a reply can use IDs it was just given. */
-type TurnScript = (request: ModelRequest, call: number) => FakeTurn;
-
-class ScriptedClient implements ModelClient {
-  calls = 0;
-  /**
-   * Prompts are snapshotted as text at call time. The loop grows one message
-   * array across turns, so holding the request object would show a later turn's
-   * contents when asserting about an earlier one.
-   */
-  readonly seenPrompts: string[] = [];
-
-  constructor(private readonly script: TurnScript) {}
-
-  createMessage(request: ModelRequest) {
-    this.seenPrompts.push(promptText(request));
-    const turn = this.script(request, this.calls);
-    this.calls += 1;
-    return Promise.resolve({
-      id: `msg_${String(this.calls)}`,
-      model: 'fake-model',
-      stopReason: turn.stopReason ?? 'end_turn',
-      content: turn.content,
-      usage: usage(),
-    });
-  }
-}
-
-/**
- * Evidence identifiers the model was actually handed, read back out of the
- * tool results in the request. Taking them from here rather than from the store
- * keeps the fake honest: it can only cite what it was told.
- */
-function evidenceIdsFrom(request: ModelRequest): string[] {
-  const matches = JSON.stringify(request.messages).match(/ev_[0-9a-f]{16}/g);
-  return [...new Set(matches ?? [])];
-}
-
-function promptText(request: { system?: string; messages: unknown }): string {
-  return `${request.system ?? ''}\n${JSON.stringify(request.messages)}`;
-}
 
 /** A schema-valid artifact for each phase, citing whatever evidence exists. */
 function artifactFor(phase: ModelPhase, evidence: readonly string[]): unknown {

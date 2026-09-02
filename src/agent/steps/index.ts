@@ -38,6 +38,21 @@ export { threatModelPhase } from './threatModel.js';
 export { invariantsPhase } from './invariants.js';
 export { authSemanticsPhase } from './authSemantics.js';
 export { scenariosPhase } from './scenarios.js';
+export { generateTestsPhase } from './generateTests.js';
+export { revisePhase, buildRevisionContext, revisionReasonFor } from './revise.js';
+export {
+  executeGeneratedTests,
+  ExecutionSetupError,
+  type ExecutionContext,
+  type ExecutionOutcome,
+} from './execute.js';
+export {
+  runTestCycle,
+  TestCycleError,
+  type TestAttempt,
+  type TestCycleOptions,
+  type TestCycleResult,
+} from './testCycle.js';
 
 /** The Phase 8 chain, in host-fixed order. */
 export const ANALYSIS_PHASES: readonly PhaseDefinition[] = [

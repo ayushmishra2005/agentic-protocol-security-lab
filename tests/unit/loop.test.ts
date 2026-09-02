@@ -23,6 +23,7 @@ import {
   isHostOnlyPhase,
   isModelPhase,
   legalSuccessor,
+  legalSuccessors,
   PhaseMachine,
   PhaseTransitionError,
 } from '../../src/agent/phases.js';
@@ -562,17 +563,33 @@ describe('phase state machine is host-owned', () => {
     assert.equal(FIRST_PHASE, 'understand');
     assert.equal(FINAL_PHASE, 'report');
 
-    for (let index = 1; index < MODEL_PHASE_SEQUENCE.length; index += 1) {
-      assert.equal(machine.advance({ validArtifact: true }), MODEL_PHASE_SEQUENCE[index]);
+    // Linear as far as execute, which is the one branching phase; the full
+    // conditional graph is exercised in tests/unit/revisionGraph.test.ts.
+    for (const expected of MODEL_PHASE_SEQUENCE.slice(
+      1,
+      MODEL_PHASE_SEQUENCE.indexOf('execute') + 1,
+    )) {
+      assert.equal(machine.advance({ validArtifact: true }), expected);
     }
+    assert.equal(machine.current, 'execute');
+    assert.equal(machine.advance({ validArtifact: true, revisionRequired: false }), 'report');
     assert.equal(machine.advance({ validArtifact: true }), undefined);
     assert.equal(machine.status, 'completed');
   });
 
-  it('offers exactly one successor per phase, so there is no branch to influence', () => {
-    for (let index = 0; index < MODEL_PHASE_SEQUENCE.length - 1; index += 1) {
-      const phase = MODEL_PHASE_SEQUENCE[index];
-      assert.ok(phase);
+  it('offers exactly one successor per phase except the branching one', () => {
+    for (const phase of MODEL_PHASE_SEQUENCE) {
+      if (phase === 'execute') {
+        // The only branch, and it is taken on host-observed evidence.
+        assert.deepEqual(legalSuccessors(phase), ['revise', 'report']);
+        assert.equal(legalSuccessor(phase), undefined);
+        continue;
+      }
+      if (phase === 'revise') {
+        assert.deepEqual(legalSuccessors(phase), ['execute']);
+        continue;
+      }
+      const index = MODEL_PHASE_SEQUENCE.indexOf(phase);
       assert.equal(legalSuccessor(phase), MODEL_PHASE_SEQUENCE[index + 1]);
     }
     assert.equal(legalSuccessor(FINAL_PHASE), undefined);
@@ -617,7 +634,7 @@ describe('phase state machine is host-owned', () => {
       machine.assertExpectedPhase('evaluate');
     }, PhaseTransitionError);
     for (const phase of MODEL_PHASE_SEQUENCE) {
-      assert.notEqual(legalSuccessor(phase), 'evaluate');
+      assert.equal(legalSuccessors(phase).includes('evaluate' as never), false);
     }
   });
 

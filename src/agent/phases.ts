@@ -16,13 +16,29 @@
  * no artifact schema, and there is no transition into it from anywhere in this
  * file, so no model-facing code path can reach the scoring stage.
  *
- * Deliberately not implemented: plan.md describes `revise` as entered by host
- * decision on observed compilation or execution results, which implies a
- * conditional `execute → revise → execute` cycle. Phase 9 owns that design, and
- * inventing the edges now would mean guessing at a graph the specification has
- * not settled. Until then the machine runs the documented linear order, and
- * there are no backward transitions at all.
+ * The graph is linear except at `execute`, which is the one place the run has a
+ * real decision to make:
+ *
+ *   understand → inspect → threat_model → invariants → auth_semantics →
+ *   scenarios → generate_tests → execute
+ *
+ *   execute → report    when the observed result matched what the generated
+ *                       test declared before it ran, or when revision is
+ *                       required but the budget is spent
+ *   execute → revise    when revision is required and budget remains
+ *   revise  → execute   always: a revised test means nothing until it runs
+ *
+ * The branch is taken on `revisionRequired`, which the host computes from
+ * compile and execution evidence in `src/agent/steps/execute.ts`. It is not a
+ * field on any artifact and there is no path by which a model response can set
+ * it, so `revise` is never model-selected. Nor can the model reach `report` by
+ * declining to revise: the same host decision governs both edges.
+ *
+ * The revision counter and its maximum live here, on the machine, rather than
+ * in the step that requests revision. A budget enforced by the thing that wants
+ * to spend it is not a budget.
  */
+import { MODEL_LOOP_DEFAULTS } from '../config.js';
 import {
   HOST_ONLY_PHASE,
   MODEL_PHASE_SEQUENCE,
@@ -53,13 +69,27 @@ export function isModelPhase(candidate: string): candidate is ModelPhase {
 }
 
 /**
- * The one legal transition out of a phase.
+ * Every phase that may legally follow `phase`.
  *
- * Returning a single successor rather than a set is the point: there is no
- * branch for a caller to influence.
+ * Only `execute` has more than one, and which of its two is taken is decided by
+ * host-observed evidence rather than by anything a caller may propose.
+ */
+export function legalSuccessors(phase: ModelPhase): readonly ModelPhase[] {
+  if (phase === 'execute') return ['revise', 'report'];
+  if (phase === 'revise') return ['execute'];
+  const successor = nextPhase(phase);
+  return successor === undefined ? [] : [successor];
+}
+
+/**
+ * The single legal successor, where there is one.
+ *
+ * `undefined` for `execute`, which branches, and for the final phase, which
+ * ends. Callers that need to handle the branch use `legalSuccessors`.
  */
 export function legalSuccessor(phase: ModelPhase): ModelPhase | undefined {
-  return nextPhase(phase);
+  const successors = legalSuccessors(phase);
+  return successors.length === 1 ? successors[0] : undefined;
 }
 
 export interface PhaseCompletion {
@@ -70,7 +100,38 @@ export interface PhaseCompletion {
 export class PhaseMachine {
   #current: ModelPhase = FIRST_PHASE;
   #status: PhaseMachineStatus = 'running';
+  #revisions = 0;
+  #revisionExhausted = false;
+  readonly #maxRevisions: number;
   readonly #completed: PhaseCompletion[] = [];
+
+  constructor(options: { readonly maxRevisions?: number } = {}) {
+    const max = options.maxRevisions ?? MODEL_LOOP_DEFAULTS.maxRevisions;
+    if (!Number.isSafeInteger(max) || max < 0) {
+      throw new PhaseTransitionError(`Invalid revision budget: ${String(max)}`);
+    }
+    this.#maxRevisions = max;
+  }
+
+  /** Revisions consumed so far. Read-only to everything outside this class. */
+  get revisions(): number {
+    return this.#revisions;
+  }
+
+  get maxRevisions(): number {
+    return this.#maxRevisions;
+  }
+
+  /**
+   * True when revision was needed and the budget was already spent.
+   *
+   * The run still proceeds to `report`, because a report saying the test never
+   * came good is the honest outcome. What it must not do is present that state
+   * as success, which is why this flag exists rather than a silent fall-through.
+   */
+  get revisionExhausted(): boolean {
+    return this.#revisionExhausted;
+  }
 
   get current(): ModelPhase {
     return this.#current;
@@ -101,7 +162,15 @@ export class PhaseMachine {
    * accepted the artifact, never by anything the model said about its own
    * output, so an invalid artifact cannot advance the machine.
    */
-  advance(options: { validArtifact: boolean }): ModelPhase | undefined {
+  advance(options: {
+    validArtifact: boolean;
+    /**
+     * Required when leaving `execute`, and rejected everywhere else. The host
+     * computes it from compile and execution evidence; there is no artifact
+     * field behind it.
+     */
+    revisionRequired?: boolean;
+  }): ModelPhase | undefined {
     this.#assertRunning();
 
     if (!options.validArtifact) {
@@ -110,9 +179,22 @@ export class PhaseMachine {
       );
     }
 
+    const atExecute = this.#current === 'execute';
+    if (atExecute && options.revisionRequired === undefined) {
+      throw new PhaseTransitionError(
+        'Leaving execute requires an explicit host decision on whether revision is needed. ' +
+          'Defaulting it would let an unobserved run continue as though it had been checked.',
+      );
+    }
+    if (!atExecute && options.revisionRequired !== undefined) {
+      throw new PhaseTransitionError(
+        `revisionRequired is only meaningful when leaving execute, not ${this.#current}.`,
+      );
+    }
+
     this.#completed.push({ phase: this.#current, degraded: false });
 
-    const successor = legalSuccessor(this.#current);
+    const successor = this.#successorFor(atExecute, options.revisionRequired === true);
     if (successor === undefined) {
       this.#status = 'completed';
       return undefined;
@@ -120,6 +202,21 @@ export class PhaseMachine {
 
     this.#current = successor;
     return successor;
+  }
+
+  #successorFor(atExecute: boolean, revisionRequired: boolean): ModelPhase | undefined {
+    if (atExecute) {
+      if (!revisionRequired) return 'report';
+      if (this.#revisions >= this.#maxRevisions) {
+        // Budget spent. The cycle stops here and the run reports what it last
+        // observed; it does not keep trying and does not claim success.
+        this.#revisionExhausted = true;
+        return 'report';
+      }
+      this.#revisions += 1;
+      return 'revise';
+    }
+    return legalSuccessor(this.#current);
   }
 
   /**

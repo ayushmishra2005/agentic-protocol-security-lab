@@ -178,6 +178,12 @@ export const MODEL_LOOP_DEFAULTS = {
   maxProviderRetries: 3,
   /** Artifact validation attempts before a phase is marked degraded. */
   maxValidationAttempts: 3,
+  /**
+   * Maximum host-initiated revisions of a generated test per run. Small on
+   * purpose: a test that is still wrong after two corrections is evidence about
+   * the analysis, and spending more turns on it buys noise.
+   */
+  maxRevisions: 2,
   /** Per-request cap handed to the provider. */
   maxOutputTokens: 8_192,
   /** Provider request timeout. */

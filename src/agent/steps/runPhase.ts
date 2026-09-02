@@ -70,6 +70,8 @@ export interface RunPhaseOptions {
   readonly budgets?: LoopBudgets;
   readonly usage?: UsageAccumulator;
   readonly maxValidationAttempts?: number;
+  /** Extra trusted host text for this phase. See `PhasePromptInput.hostContext`. */
+  readonly hostContext?: string;
   readonly fence?: UntrustedFence;
   readonly signal?: AbortSignal;
 }
@@ -189,6 +191,7 @@ export async function runPhase(options: RunPhaseOptions): Promise<RunPhaseResult
         toolGuidance: definition.toolGuidance,
         priorArtifacts: priors,
         previousIssues,
+        ...(options.hostContext === undefined ? {} : { hostContext: options.hostContext }),
         ...(options.fence === undefined ? {} : { fence: options.fence }),
       });
 

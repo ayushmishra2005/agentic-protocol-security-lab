@@ -160,8 +160,8 @@ fixture and the agent sharing a misconception.
 - [x] T054 [US1] Implement `auth_semantics` in `src/agent/steps/authSemantics.ts`, examining signatories, observers, controllers, and choice structure
 - [x] T055 [US1] Implement `scenarios` in `src/agent/steps/scenarios.ts`, enumerating candidate misuse scenarios
 - [x] T056 [US1] Implement prompt construction in `src/agent/prompt.ts`: frame all target-derived text as untrusted data, and keep target source out of any cached prefix so that no target content can alter host policy, phase order, or the allowlist
-- [ ] T057 [US1] If a host-side template/signatory/observer/controller extractor is implemented in `src/tools/daml/extract.ts`, label its output as a heuristic wherever it appears, and never as authoritative parsing
-- [ ] T058 [US1] Add an injection-resistance test in `tests/unit/injection.test.ts`: a fixture source containing instruction-like text must not change host behavior
+- [x] T057 [US1] If a host-side template/signatory/observer/controller extractor is implemented in `src/tools/daml/extract.ts`, label its output as a heuristic wherever it appears, and never as authoritative parsing — N/A: no host-side Daml extractor is implemented in the MVP, so the conditional capability was never introduced. `auth_semantics` entries carry `heuristic: true` because they are model-read source, not parsed structure.
+- [x] T058 [US1] Add an injection-resistance test in `tests/unit/injection.test.ts`: a fixture source containing instruction-like text must not change host behavior
 
 **Checkpoint**: Analysis produces validated artifacts and resists target-supplied instructions.
 
@@ -172,14 +172,14 @@ fixture and the agent sharing a misconception.
 **Purpose**: The part that makes this agentic rather than descriptive — generated tests actually run,
 and results feed back.
 
-- [ ] T059 [US1] Implement the run-scoped write boundary in `src/agent/writeBoundary.ts`: the only model-influenced writes are generated Scripts into the run directory, with fixture sources, `expected.json`, oracles, and scorer code read-only for the whole run
-- [ ] T060 [US1] Unit-test in `tests/unit/writeBoundary.test.ts` that attempts to write to a fixture, an expectation file, an oracle, or the scorer are refused and recorded
-- [ ] T061 [US1] Implement `generate_tests` in `src/agent/steps/generateTests.ts`, writing adversarial Daml Scripts through the write boundary, and instructing the model to use the current Script API — typed `SubmitError` matching and `actAs`/`readAs` submit options — rather than the deprecated `submitMulti` family
-- [ ] T062 [US1] Implement `execute` in `src/agent/steps/execute.ts`, compiling and running generated tests via the Daml tools and recording results as evidence
-- [ ] T063 [US1] Ensure compilation failures and execution failures are both observable to the workflow and distinguishable from each other
-- [ ] T064 [US1] Implement bounded `revise` in `src/agent/steps/revise.ts`, entered by host decision on compilation failure or on execution results contradicting stated expectations, with an explicit maximum attempt count
-- [ ] T065 [US1] Enforce that a conclusion whose supporting test never compiled cannot reach confirmed state
-- [ ] T066 [US1] Integration-test the generate/execute/revise cycle in `tests/integration/revise.test.ts` against the real toolchain, asserting that a non-compiling generated test triggers exactly one bounded revision
+- [x] T059 [US1] Implement the run-scoped write boundary in `src/agent/writeBoundary.ts`: the only model-influenced writes are generated Scripts into the run directory, with fixture sources, `expected.json`, oracles, and scorer code read-only for the whole run
+- [x] T060 [US1] Unit-test in `tests/unit/writeBoundary.test.ts` that attempts to write to a fixture, an expectation file, an oracle, or the scorer are refused and recorded
+- [x] T061 [US1] Implement `generate_tests` in `src/agent/steps/generateTests.ts`, writing adversarial Daml Scripts through the write boundary, and instructing the model to use the current Script API — typed `SubmitError` matching and `actAs`/`readAs` submit options — rather than the deprecated `submitMulti` family
+- [x] T062 [US1] Implement `execute` in `src/agent/steps/execute.ts`, compiling and running generated tests via the Daml tools and recording results as evidence
+- [x] T063 [US1] Ensure compilation failures and execution failures are both observable to the workflow and distinguishable from each other
+- [x] T064 [US1] Implement bounded `revise` in `src/agent/steps/revise.ts`, entered by host decision on compilation failure or on execution results contradicting stated expectations, with an explicit maximum attempt count
+- [x] T065 [US1] Enforce that a conclusion whose supporting test never compiled cannot reach confirmed state
+- [x] T066 [US1] Integration-test the generate/execute/revise cycle in `tests/integration/revise.test.ts` against the real toolchain, asserting that a non-compiling generated test triggers exactly one bounded revision
 
 **Checkpoint**: Generated tests run for real, failures are observed, and revision is bounded.
 

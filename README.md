@@ -4,11 +4,13 @@ AI-native, spec-driven protocol security agent that turns code changes into thre
 invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
 adapter: Daml/Canton.
 
-## Status: analysis phases implemented — no test generation, execution or evaluation yet
+## Status: generated tests execute for real — no reporting or evaluation yet
 
-The pipeline stops where the interesting part begins. Nothing here generates a Daml test, runs one,
-scores anything, or has made a live provider request; every model interaction so far is a
-deterministic fake in a test. What exists today is the governance and
+Generated Daml security tests now compile and run on the pinned toolchain inside an isolated run
+workspace, with bounded host-controlled revision when a test fails to compile or produces a result
+that contradicts the expectation it declared beforehand. Nothing here produces a report, scores a
+run, or has made a live provider request; every model interaction so far is a deterministic fake in a
+test. What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
 allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
 oracle proving the defect on the real toolchain:
@@ -43,8 +45,19 @@ threat model, invariants, auth semantics and scenarios — each with a host-auth
 schema its output must satisfy. The model is not handed the repository; it has to request source
 through the allowlisted tools, and an artifact citing an evidence identifier that does not resolve to
 a real recorded invocation is rejected rather than accepted on trust. Target-derived text is fenced
-as untrusted data and never enters the trusted prefix. The phases end at candidate misuse scenarios:
-attempts worth testing, not results, since nothing has been executed against a ledger.
+as untrusted data and never enters the trusted prefix.
+
+Those scenarios now become tests that actually run. The model writes Daml Script source and declares,
+before anything executes, what it expects the run to report; the host writes that source through a
+write boundary whose only permitted destination is the run's own generated directory, compiles it
+against a copy of the target, and runs it. The committed fixture is never a build root or a write
+destination. What the toolchain reports is sorted into four states the host keeps apart — the test
+never compiled, it compiled but no result was observed, it ran and matched its prediction, or it ran
+and contradicted it — and the last two of those are the only ones that say anything about the target
+at all. A compile failure or a contradiction sends the run back for at most two host-ordered
+revisions; the model cannot choose to revise, cannot raise the budget, and cannot restate its
+expectation after seeing the result. A conclusion whose supporting test never compiled and ran to its
+own prediction cannot reach confirmed state, whatever the model asserts about it.
 
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 

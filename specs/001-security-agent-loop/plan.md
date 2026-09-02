@@ -170,7 +170,12 @@ untrusted. The model never receives environment variables, credentials, or comma
 
 ```
 understand → inspect → threat_model → invariants → auth_semantics →
-scenarios → generate_tests → execute → revise → report
+scenarios → generate_tests → execute
+
+execute → report    observed result matched the generated test's pre-declared
+                    expectation, or revision is required but the budget is spent
+execute → revise    revision is required and budget remains
+revise  → execute   a revised test is re-run; it is never assumed correct
 ```
 
 then, host-only and outside the model loop:
@@ -180,8 +185,13 @@ evaluate
 ```
 
 The model cannot reorder, skip, or re-enter phases. `revise` is entered only by host decision, driven
-by observed compilation or execution results, and is bounded by an explicit maximum. `evaluate` is
-unreachable from any model-facing code path, satisfying Article IV.
+by observed compilation or execution results, and is bounded by an explicit maximum of
+`MODEL_LOOP_DEFAULTS.maxRevisions` (2). The two conditions that require revision are a generated test
+that failed to compile, and an executed test whose observed result contradicts the expectation it
+declared before it ran. Neither is expressible in an artifact, so neither is model-settable. When the
+budget is spent with revision still required, the run proceeds to `report` in an explicitly exhausted
+state rather than looping or presenting the last attempt as successful. `evaluate` is unreachable
+from any model-facing code path, satisfying Article IV.
 
 **Tool library** (deterministic host functions; the model supplies validated parameters only):
 
