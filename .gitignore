@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+coverage/
+*.log
+
+# Secrets
+.env
+.env.local
+
+# Agent runtime output
+artifacts/
+runs/
