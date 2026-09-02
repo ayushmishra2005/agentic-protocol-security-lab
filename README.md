@@ -6,9 +6,10 @@ adapter: Daml/Canton.
 
 ## Status: deterministic foundation — no agent yet
 
-There is no agent loop, no model client, no fixture, and no evaluation. What exists today is the
-governance and specification layer, plus the host-side security boundary that must be in place
-before a model is ever allowed into the runtime:
+There is no agent loop, no model client, and no evaluation. What exists today is the governance and
+specification layer, the host-side security boundary that must be in place before a model is ever
+allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
+oracle proving the defect on the real toolchain:
 
 | Artifact | Purpose |
 |---|---|
@@ -38,7 +39,8 @@ small allowlisted set of deterministic tools. It derives authorization and priva
 generates adversarial Daml Script tests, executes them with the real pinned Daml toolchain, revises
 when results contradict its expectations, and produces a report in which every confirmed conclusion
 must reference a recorded tool invocation. A deterministic host scorer — which the model cannot
-reach or modify — grades runs against hand-written vulnerable fixtures.
+reach or modify — grades runs against checked-in vulnerable fixtures whose oracles and expectations
+are host-owned and independently reviewed.
 
 The point is that conclusions are traceable to executed tooling rather than model narrative. If the
 demonstration were `prompt → Markdown report`, it would have failed its own definition.

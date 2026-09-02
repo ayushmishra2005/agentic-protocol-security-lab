@@ -42,7 +42,7 @@ export const ExpectedSchema = z.strictObject({
   /** Classes that are acceptable but not required, and so never false positives. */
   allowedExtraClasses: z.array(FindingClassSchema).max(50),
   generatedTestExpectations: GeneratedTestExpectationsSchema,
-  /** Human-written oracle Script, as `Module:script`. */
+  /** Host-owned, independently reviewed oracle Script, as `Module:script`. */
   oracleScript: z.string().min(1).max(256),
 });
 

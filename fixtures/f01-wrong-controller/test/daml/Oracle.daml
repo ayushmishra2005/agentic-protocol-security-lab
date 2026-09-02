@@ -1,0 +1,105 @@
+-- Host-owned oracle for F01 (wrong-controller authorization defect).
+--
+-- This oracle is reviewed and approved independently of the evaluated agent and
+-- exists before any evaluation run, so that a later passing agent score cannot
+-- result from the agent controlling both the fixture and its oracle
+-- (Constitution Article IX).
+--
+-- The oracle proves two things that only mean something together:
+--
+--   1. `exploitSucceeds` — the custodian, who has no legitimate authority over
+--      ownership, transfers the asset to itself and the submission SUCCEEDS. The
+--      exploit is not wrapped in `submitMustFail`: under the buggy code the
+--      custodian really is the declared controller, so the runtime is correct to
+--      allow it. The successful state transition is the vulnerability evidence.
+--
+--   2. `negativeControlAuthorizationError` — Alice, the legitimate owner, is
+--      refused with a typed `AuthorizationError`. Alice is an observer, so she can
+--      see the contract and the refusal cannot be a visibility failure. This rules
+--      out the alternative explanation for (1): that the exploit succeeded because
+--      authorization was somehow not being enforced at all.
+--
+-- Taken together, the executions demonstrate that authorization follows the declared
+-- `custodian` controller rather than the intended `owner`: the custodian can exercise
+-- Transfer successfully, while the visible legitimate owner receives a typed
+-- AuthorizationError.
+module Oracle where
+
+import DA.Assert ((===))
+import Daml.Script
+
+import Asset
+
+data Fixture = Fixture
+  with
+    issuer : Party
+    alice : Party
+    custodian : Party
+    assetId : ContractId Asset
+
+-- Allocates the parties and issues one asset owned by Alice.
+setupFixture : Script Fixture
+setupFixture = do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  custodian <- allocateParty "Custodian"
+
+  assetId <- submit issuer do
+    createCmd Asset with
+      issuer = issuer
+      owner = alice
+      custodian = custodian
+      description = "Series A share certificate"
+
+  pure Fixture with
+    issuer = issuer
+    alice = alice
+    custodian = custodian
+    assetId = assetId
+
+-- EXPLOIT: the custodian seizes ownership without the owner's authority.
+exploitSucceeds : Script ()
+exploitSucceeds = do
+  fixture <- setupFixture
+
+  seizedId <- submit fixture.custodian do
+    exerciseCmd fixture.assetId Transfer with newOwner = fixture.custodian
+
+  original <- queryContractId fixture.issuer fixture.assetId
+  original === None
+
+  seized <- queryContractId fixture.issuer seizedId
+  case seized of
+    None ->
+      abort "F01 exploit: expected the transferred Asset to exist after the seizure"
+    Some asset -> do
+      asset.owner === fixture.custodian
+      assertMsg
+        "F01 exploit: Alice must no longer be the owner after the custodian's transfer"
+        (asset.owner /= fixture.alice)
+      assertMsg
+        "F01 exploit: the issuer must be unchanged by the seizure"
+        (asset.issuer == fixture.issuer)
+
+-- NEGATIVE CONTROL: the legitimate owner is refused, with the failure kind pinned
+-- down rather than merely observed to be some failure.
+negativeControlAuthorizationError : Script ()
+negativeControlAuthorizationError = do
+  fixture <- setupFixture
+
+  result <- trySubmit fixture.alice do
+    exerciseCmd fixture.assetId Transfer with newOwner = fixture.alice
+
+  case result of
+    Right _ ->
+      abort "F01 negative control: Alice must not be able to exercise Transfer"
+    Left (AuthorizationError _) ->
+      pure ()
+    Left other ->
+      abort ("F01 negative control: expected AuthorizationError, observed " <> show other)
+
+-- Documented oracle entry point, named by expected.json.
+oracle : Script ()
+oracle = do
+  exploitSucceeds
+  negativeControlAuthorizationError

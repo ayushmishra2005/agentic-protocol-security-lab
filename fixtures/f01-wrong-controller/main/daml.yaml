@@ -1,0 +1,7 @@
+sdk-version: 3.5.5
+name: f01-wrong-controller-main
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib

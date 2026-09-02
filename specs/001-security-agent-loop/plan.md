@@ -12,7 +12,7 @@ an untrusted planner that may only emit validated structured artifacts and valid
 small allowlisted tool library. The loop derives authorization/privacy invariants, generates
 adversarial Daml Script tests, executes them with the real pinned toolchain, revises on contradiction
 within a bounded budget, and emits an evidence-referenced report. A deterministic host scorer grades
-runs against hand-written fixtures with human-written oracles.
+runs against checked-in fixtures with host-owned, independently reviewed oracles.
 
 ## Technical Context
 
@@ -97,7 +97,7 @@ the scorer and tool wrappers consume structured XML and JSON, never scraped huma
 | VI. Adapter honesty | Scope fixed at language-level Daml semantics on a pinned toolchain; boundary statement required in output | PASS |
 | VII. Simplicity | One process, one state machine, one adapter; prohibited technologies listed below and not introduced | PASS |
 | VIII. Skills to authoritative sources | Toolchain surface derived from installed CLI help, not model memory; no third-party skill text copied | PASS |
-| IX. Integration-first | Every fixture requires a human-written oracle executed on the pinned toolchain before it counts | PASS |
+| IX. Integration-first | Every fixture requires a host-owned, independently reviewed oracle, executed on the pinned toolchain and beyond the evaluated model's reach, before it counts | PASS |
 
 No violations. Complexity Tracking is therefore empty.
 
@@ -250,7 +250,8 @@ references counts as an unsupported claim.
 
 Each fixture is a multi-package Daml project in the layout verified against the pinned toolchain — a
 model package plus a test package depending on `daml-script` via `data-dependencies`, with
-`sdk-version: 3.5.5` — plus a hand-written oracle Script and an `expected.json`.
+`sdk-version: 3.5.5` — plus a host-owned, independently reviewed oracle Script and an
+`expected.json`.
 
 | ID | Vulnerability | Oracle demonstrates |
 |---|---|---|
@@ -283,7 +284,7 @@ not propagate transitively, and propose/accept works by the acceptor adding thei
 the accepting choice. F01–F04 remain valid as specified.
 
 **F02 caveat**: using a Script query as a privacy oracle assumes the Script runner's projection
-matches the ledger privacy model. F02's hand-written oracle MUST establish this behavior explicitly
+matches the ledger privacy model. F02's host-owned oracle MUST establish this behavior explicitly
 before F02 is scored automatically; if the observed behavior differs, F02 is scored on the finding
 and invariant only, and the discrepancy is recorded rather than worked around.
 

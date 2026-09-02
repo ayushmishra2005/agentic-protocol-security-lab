@@ -65,6 +65,44 @@ Consequential specification updates in the same change:
 Implementation impact: none. src/tools/registry.ts already registers every tool with
   networkCapable: false and enforces it at runtime via assertNoNetworkCapableTools,
   which is precisely the model-facing rule this amendment preserves.
+
+------------------------------------------------------------------------------
+AMENDMENT 2026-09-02
+Version change: 1.1.0 -> 1.1.1
+Bump rationale: PATCH. Wording precision in Article IX. The obligation is restated,
+  not relaxed; no article added, removed, or redefined.
+
+Rationale: Article IX required a "human-written oracle". That phrasing made a claim
+  about authorship that this project cannot honestly make, since oracle and fixture
+  work is AI-assisted inside the editor. It was also the wrong property to name. What
+  the article actually needs to guarantee is that the evaluated model never controls
+  both the fixture expectation and the oracle that checks it. The requirement is
+  therefore restated in terms of host ownership, independent review, existence before
+  evaluation, and modification protection from the evaluated model, which is strictly
+  more demanding than "a person typed it" and is checkable by review.
+
+Modified sections:
+  IX. Integration-First Verification - oracle requirement restated as "host-owned,
+    independently reviewed oracle Script that exists before evaluation, is unavailable
+    for modification by the evaluated model, runs on the pinned toolchain, and
+    demonstrates the intended behavior independently of the agent". Rationale extended
+    to name the shared-control failure mode explicitly.
+
+Not weakened: Articles II, IV, V, and IX all retain or strengthen their obligations.
+  No other article is touched.
+
+Consequential updates in the same change, for consistency only:
+  specs/001-security-agent-loop/spec.md - FR-018, Fixture entity, SC-005
+  specs/001-security-agent-loop/plan.md - summary, Article IX gate row, Fixtures, F02 caveat
+  specs/001-security-agent-loop/tasks.md - organization note, T036, phase summary, notes
+  fixtures/f01-wrong-controller/test/daml/Oracle.daml - header comment
+  tests/integration/f01-oracle.test.ts - header comment
+  src/schemas/expected.ts - oracleScript doc comment
+  README.md - status and scorer sentences
+
+Fixture behavior impact: none. F01's deliberate defect, its exploit, its typed
+  AuthorizationError negative control, expected.json semantics, the pinned toolchain,
+  and the unit/integration split are all unchanged.
 -->
 
 # Agentic Protocol Security Lab Constitution
@@ -219,8 +257,10 @@ also keeps the repository's licensing clean.
 
 Fixture evaluation uses real toolchain behavior.
 
-- Every security fixture MUST have a human-written oracle Script that runs on the
-  pinned toolchain and demonstrates the intended behavior independently of the agent.
+- Every security fixture MUST have a host-owned, independently reviewed oracle Script
+  that exists before evaluation, is unavailable for modification by the evaluated
+  model, runs on the pinned toolchain, and demonstrates the intended behavior
+  independently of the agent.
 - A fixture is not complete until its oracle has been executed and its result recorded.
 - Unit tests MAY mock boundaries such as process execution where necessary to test
   host logic in isolation, but mocked results MUST NOT substitute for fixture
@@ -228,7 +268,9 @@ Fixture evaluation uses real toolchain behavior.
 
 **Rationale**: An oracle proves the bug is real before any model is asked to find it.
 Without it, a passing score may only prove that the fixture and the agent share a
-misconception.
+misconception. What makes the oracle load-bearing is not who typed it but that the
+evaluated model never controls both the fixture expectation and the oracle that
+checks it.
 
 ## Security Requirements And Trust Boundaries
 
@@ -286,4 +328,4 @@ these articles before implementation begins. Violations must either be corrected
 recorded as justified exceptions in the plan's complexity tracking. A justified
 exception is never available for Article II.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02
+**Version**: 1.1.1 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02

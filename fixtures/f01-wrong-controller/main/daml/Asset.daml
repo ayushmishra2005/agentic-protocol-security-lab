@@ -1,0 +1,34 @@
+-- F01: wrong-controller authorization defect.
+--
+-- This package is a security fixture. The defect below is deliberate. Do not fix
+-- it: the oracle in the sibling test package asserts that the defect is still
+-- present, so repairing the template makes the fixture fail by design.
+--
+-- Intended authorization policy
+--   An Asset is issued by `issuer` and held by `owner`. A `custodian` settles and
+--   reports on the asset, so it must be able to see the contract. Only the current
+--   `owner` may transfer ownership away from themselves.
+--
+-- The defect
+--   `Transfer` names `custodian` as its controller instead of `owner`. The custodian
+--   can therefore reassign ownership unilaterally, including to itself, without the
+--   owner's authority ever being required.
+module Asset where
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    custodian : Party
+    description : Text
+  where
+    signatory issuer
+    observer owner, custodian
+
+    choice Transfer : ContractId Asset
+      with
+        newOwner : Party
+      -- Should be `controller owner`. This single wrong word is the vulnerability.
+      controller custodian
+      do
+        create this with owner = newOwner

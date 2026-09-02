@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "f01-wrong-controller",
+  "damlSdkVersion": "3.5.5",
+  "description": "The Transfer choice on the Asset template names the custodian as its controller instead of the owner, so the custodian can reassign ownership without the owner's authority.",
+  "expectedFindings": [
+    {
+      "id": "f01-transfer-wrong-controller",
+      "class": "incorrect_controller",
+      "mustCiteTemplate": "Asset",
+      "mustCiteChoice": "Transfer"
+    }
+  ],
+  "expectedInvariants": [
+    {
+      "id": "f01-only-owner-transfers",
+      "class": "incorrect_controller"
+    }
+  ],
+  "allowedExtraClasses": [],
+  "generatedTestExpectations": {
+    "mustCompile": true,
+    "mustExposeExpectedBehavior": true
+  },
+  "oracleScript": "Oracle:oracle"
+}

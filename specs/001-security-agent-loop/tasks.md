@@ -15,7 +15,7 @@ oracle run per fixture, and Article II's confinement guarantees are only credibl
 tested.
 
 **Organization**: Tasks are grouped into phases that preserve the public proof sequence. Ordering is
-deliberate — security primitives precede the tool library, and F01's human-written oracle is verified
+deliberate — security primitives precede the tool library, and F01's host-owned oracle is verified
 against the real toolchain *before* any model code exists, so that the fixture is proven independently
 of the agent.
 
@@ -109,13 +109,13 @@ a tool. Nothing downstream may bypass these modules.
 Article IX this must precede agent work, so a later passing score cannot be an artifact of the
 fixture and the agent sharing a misconception.
 
-- [ ] T033 [US1] Create the F01 vulnerable package in `fixtures/f01-wrong-controller/main/` — a template whose choice names the wrong controlling party
-- [ ] T034 [US1] Create the F01 test package in `fixtures/f01-wrong-controller/test/` with `daml-script` as a dependency and a `data-dependencies` reference to the main package DAR
-- [ ] T035 [US1] Add `fixtures/f01-wrong-controller/multi-package.yaml` pinning `sdk-version: 3.5.5`
-- [ ] T036 [US1] Write the human-written oracle Script in `fixtures/f01-wrong-controller/test/daml/Oracle.daml`, demonstrating that an unauthorized party can exercise the choice, and asserting the typed `AuthorizationError` case of `SubmitError` via `trySubmit`/`submitWithError` rather than relying on bare `submitMustFail`
-- [ ] T037 [US1] Declare F01 expectations in `fixtures/f01-wrong-controller/expected.json`
-- [ ] T038 [US1] Verify F01 against the real toolchain: `dpm build --all` succeeds and the oracle runs with its documented outcome; record the observed output
-- [ ] T039 [US1] Add an integration test in `tests/integration/f01-oracle.test.ts` that builds and runs the F01 oracle and asserts the recorded outcome
+- [x] T033 [US1] Create the F01 vulnerable package in `fixtures/f01-wrong-controller/main/` — a template whose choice names the wrong controlling party
+- [x] T034 [US1] Create the F01 test package in `fixtures/f01-wrong-controller/test/` with `daml-script` as a dependency and a `data-dependencies` reference to the main package DAR
+- [x] T035 [US1] Add `fixtures/f01-wrong-controller/multi-package.yaml` pinning `sdk-version: 3.5.5`
+- [x] T036 [US1] Write the host-owned, independently reviewed oracle Script in `fixtures/f01-wrong-controller/test/daml/Oracle.daml`, demonstrating that an unauthorized party can exercise the choice, and asserting the typed `AuthorizationError` case of `SubmitError` via `trySubmit`/`submitWithError` rather than relying on bare `submitMustFail`
+- [x] T037 [US1] Declare F01 expectations in `fixtures/f01-wrong-controller/expected.json`
+- [x] T038 [US1] Verify F01 against the real toolchain: `dpm build --all` succeeds and the oracle runs with its documented outcome; record the observed output
+- [x] T039 [US1] Add an integration test in `tests/integration/f01-oracle.test.ts` that builds and runs the F01 oracle and asserts the recorded outcome
 
 **Checkpoint**: F01 is a proven vulnerability with a reproducible oracle, independent of any model.
 
@@ -316,7 +316,7 @@ started before Phase 13 is complete.
 ### MVP First
 
 1. Phases 1–4: governance, skeleton, security primitives, tools.
-2. Phase 5: prove F01 with a human-written oracle, before any model code.
+2. Phase 5: prove F01 with a host-owned oracle, before any model code.
 3. Phases 6–10: evidence, loop, analysis, generation/execution/revision, reporting.
 4. **STOP and VALIDATE**: run `analyze` against F01 end to end. Confirm every confirmed finding
    resolves to evidence and that at least one generated Script compiled and executed.
@@ -335,7 +335,7 @@ started before Phase 13 is complete.
 - Task count: **97** total — **95** in the scored MVP (T001–T095), plus **2** stretch tasks.
 - Completed: T001–T004.
 - `[P]` marks tasks touching different files with no ordering dependency.
-- Every fixture requires a human-written oracle before it may be scored (Article IX).
+- Every fixture requires a host-owned, independently reviewed oracle, beyond the evaluated model's reach, before it may be scored (Article IX).
 - MCP is a stretch goal only and must never block the scored MVP.
 - No task in this list authorizes committing, pushing, or branching; version-control actions remain a
   human decision.

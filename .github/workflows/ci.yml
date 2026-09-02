@@ -32,7 +32,7 @@ jobs:
         run: npm run format:check
 
       # The Daml toolchain is not installed on the runner, so these are the
-      # host-boundary unit tests only. Toolchain-dependent verification runs
-      # locally against the pinned dpm 1.0.21 / SDK 3.5.5.
+      # host-boundary unit tests only. The F01 oracle integration test requires the
+      # pinned dpm 1.0.21 / SDK 3.5.5 and runs locally via `npm run test:integration`.
       - name: Unit tests
-        run: npm test
+        run: npm run test:unit

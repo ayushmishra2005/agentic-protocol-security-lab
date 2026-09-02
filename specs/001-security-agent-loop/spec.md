@@ -169,8 +169,9 @@ documented commands, and can trace at least one report conclusion to a recorded 
 - **FR-017**: The system MUST include four vulnerable fixtures covering wrong controller
   authorization, unintended observer exposure, missing multi-party authorization, and propose/accept
   workflow bypass.
-- **FR-018**: Each fixture MUST include a human-written oracle Script that demonstrates the intended
-  behavior on the pinned toolchain independently of the agent.
+- **FR-018**: Each fixture MUST include a host-owned, independently reviewed oracle Script that
+  exists before evaluation, is unavailable for modification by the evaluated model, and demonstrates
+  the intended behavior on the pinned toolchain independently of the agent.
 - **FR-019**: The repository MUST contain a checked-in, redacted example run showing tool
   invocations, generated tests, and the resulting report.
 - **FR-020**: All published output MUST carry an explicit boundary statement identifying the system
@@ -212,8 +213,8 @@ documented commands, and can trace at least one report conclusion to a recorded 
   generated test.
 - **Generated Test**: an agent-authored Daml Script written into run-scoped output, plus its
   compilation and execution results.
-- **Fixture**: a checked-in vulnerable Daml package with declared expectations and a human-written
-  oracle.
+- **Fixture**: a checked-in vulnerable Daml package with declared expectations and a host-owned,
+  independently reviewed oracle.
 - **Expectation Set**: the declared expected findings, invariants, and test outcomes for a fixture.
 - **Scorecard**: the host-produced evaluation result across the fixture set.
 
@@ -231,7 +232,7 @@ documented commands, and can trace at least one report conclusion to a recorded 
   expected finding was detected, whether the expected invariant was generated, whether a test was
   generated, whether it compiled, whether it exposed the expected behavior, plus counts of
   unsupported claims and false positives.
-- **SC-005**: Every fixture's human-written oracle executes on the pinned toolchain with its recorded
+- **SC-005**: Every fixture's host-owned oracle executes on the pinned toolchain with its recorded
   intended outcome.
 - **SC-006**: An attempt by the model to write outside its permitted output directory, to use an
   unlisted executable or flag, or to modify expectations or the scorer is refused and recorded, with

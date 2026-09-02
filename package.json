@@ -11,7 +11,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
+    "test:integration": "node --import tsx --test \"tests/integration/**/*.test.ts\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

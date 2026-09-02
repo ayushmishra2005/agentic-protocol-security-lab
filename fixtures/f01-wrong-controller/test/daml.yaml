@@ -1,0 +1,10 @@
+sdk-version: 3.5.5
+name: f01-wrong-controller-test
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../main/.daml/dist/f01-wrong-controller-main-1.0.0.dar
