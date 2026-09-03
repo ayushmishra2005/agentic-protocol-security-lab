@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "f04-propose-accept-bypass",
+  "damlSdkVersion": "3.5.5",
+  "description": "The TradeProposal template offers a SellerConfirm choice controlled by the seller alone, which creates a ConfirmedTrade whose signatory set omits the buyer. The seller can therefore reach a settled trade state binding the buyer as counterparty without the buyer's Accept, bypassing the intended acceptance boundary.",
+  "expectedFindings": [
+    {
+      "id": "f04-seller-confirm-bypasses-acceptance",
+      "class": "propose_accept_bypass",
+      "mustCiteTemplate": "TradeProposal",
+      "mustCiteChoice": "SellerConfirm"
+    }
+  ],
+  "expectedInvariants": [
+    {
+      "id": "f04-settled-state-requires-buyer-acceptance",
+      "class": "propose_accept_bypass"
+    }
+  ],
+  "allowedExtraClasses": ["missing_multi_party_authorization"],
+  "generatedTestExpectations": {
+    "mustCompile": true,
+    "mustExposeExpectedBehavior": true
+  },
+  "oracleScript": "Oracle:oracle"
+}

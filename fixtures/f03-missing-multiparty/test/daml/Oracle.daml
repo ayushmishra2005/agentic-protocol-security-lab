@@ -1,0 +1,127 @@
+-- Host-owned oracle for F03 (missing multi-party authorization).
+--
+-- This oracle is reviewed and approved independently of the evaluated agent and
+-- exists before any evaluation run, so that a later passing agent score cannot
+-- result from the agent controlling both the fixture and its oracle
+-- (Constitution Article IX).
+--
+-- The oracle proves three things that only mean something together:
+--
+--   1. `exploitSingleHolderWithdraws` — holderA alone withdraws from the joint
+--      account and the submission SUCCEEDS. The exploit is not wrapped in
+--      `submitMustFail`: under the buggy code holderA really is the sole declared
+--      controller, so the runtime is correct to allow it. The successful state
+--      transition is the vulnerability evidence.
+--
+--   2. `negativeControlAuthorizationError` — holderB, the other joint holder, is
+--      refused with a typed `AuthorizationError`. holderB is an observer, so it can
+--      see the contract and the refusal cannot be a visibility failure. Asserting
+--      the failure kind matters here: a bare `submitMustFail` would also pass on the
+--      balance assertion inside the choice, which would prove nothing about
+--      authority. This rules out the alternative explanation for (1): that
+--      authorization was not being enforced at all.
+--
+--   3. `bothHoldersTogetherSucceed` — a submission carrying both holders' authority,
+--      written in the current multi-party form, also succeeds. This shows the
+--      account is genuinely two-party in structure, so the defect is that one
+--      holder's authority is *sufficient*, not that the second holder is unknown to
+--      the contract.
+module Oracle where
+
+import DA.Assert ((===))
+import Daml.Script
+
+import JointAccount
+
+data Fixture = Fixture
+  with
+    bank : Party
+    holderA : Party
+    holderB : Party
+    accountId : ContractId JointAccount
+
+openingBalance : Decimal
+openingBalance = 1000.0
+
+-- Allocates the parties and opens one joint account.
+setupFixture : Script Fixture
+setupFixture = do
+  bank <- allocateParty "Bank"
+  holderA <- allocateParty "HolderA"
+  holderB <- allocateParty "HolderB"
+
+  accountId <- submit bank do
+    createCmd JointAccount with
+      bank = bank
+      holderA = holderA
+      holderB = holderB
+      balance = openingBalance
+
+  pure Fixture with
+    bank = bank
+    holderA = holderA
+    holderB = holderB
+    accountId = accountId
+
+-- EXPLOIT: one holder drains the joint account without the other's authority.
+exploitSingleHolderWithdraws : Script ()
+exploitSingleHolderWithdraws = do
+  fixture <- setupFixture
+
+  drainedId <- submit fixture.holderA do
+    exerciseCmd fixture.accountId Withdraw with amount = openingBalance
+
+  original <- queryContractId fixture.bank fixture.accountId
+  original === None
+
+  drained <- queryContractId fixture.bank drainedId
+  case drained of
+    None ->
+      abort "F03 exploit: expected the account to exist after the unilateral withdrawal"
+    Some account -> do
+      account.balance === 0.0
+      assertMsg
+        "F03 exploit: the account must still name both holders after the withdrawal"
+        (account.holderA == fixture.holderA && account.holderB == fixture.holderB)
+
+-- NEGATIVE CONTROL: the other joint holder is refused, with the failure kind pinned
+-- down rather than merely observed to be some failure.
+negativeControlAuthorizationError : Script ()
+negativeControlAuthorizationError = do
+  fixture <- setupFixture
+
+  result <- trySubmit fixture.holderB do
+    exerciseCmd fixture.accountId Withdraw with amount = 1.0
+
+  case result of
+    Right _ ->
+      abort "F03 negative control: holderB must not be able to exercise Withdraw"
+    Left (AuthorizationError _) ->
+      pure ()
+    Left other ->
+      abort ("F03 negative control: expected AuthorizationError, observed " <> show other)
+
+-- CONTROL: both holders acting together succeed, in the current submission form.
+--
+-- `submitMulti` and its relatives are deprecated in this SDK; a multi-party
+-- submission is written as `submit (actAs [...] <> readAs [...]) cmds`.
+bothHoldersTogetherSucceed : Script ()
+bothHoldersTogetherSucceed = do
+  fixture <- setupFixture
+
+  withdrawnId <- submit (actAs [fixture.holderA, fixture.holderB] <> readAs [fixture.bank]) do
+    exerciseCmd fixture.accountId Withdraw with amount = 250.0
+
+  withdrawn <- queryContractId fixture.bank withdrawnId
+  case withdrawn of
+    None ->
+      abort "F03 control: expected the account to exist after the joint withdrawal"
+    Some account ->
+      account.balance === openingBalance - 250.0
+
+-- Documented oracle entry point, named by expected.json.
+oracle : Script ()
+oracle = do
+  exploitSingleHolderWithdraws
+  negativeControlAuthorizationError
+  bothHoldersTogetherSucceed

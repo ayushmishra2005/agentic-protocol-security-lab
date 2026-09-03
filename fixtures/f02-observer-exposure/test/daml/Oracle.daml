@@ -1,0 +1,171 @@
+-- Host-owned oracle for F02 (template-level observer exposure).
+--
+-- This oracle is reviewed and approved independently of the evaluated agent and
+-- exists before any evaluation run, so that a later passing agent score cannot
+-- result from the agent controlling both the fixture and its oracle
+-- (Constitution Article IX).
+--
+-- What this oracle establishes, in order:
+--
+--   1. `privacyQueryProbe` — whether a Daml Script `query` discriminates by
+--      stakeholder at all. An outsider who is named nowhere on the contract must
+--      see nothing, while the employer who signed it must see it. Without this
+--      probe, a later query result proves nothing: if `query` returned every
+--      contract to everyone, "the vendor can see it" would be an artefact of the
+--      test runner rather than a property of the model. This probe is the reason
+--      the exposure result below can be read as evidence at all.
+--
+--   2. `exploitVendorReadsCompensation` — the vendor, which should not be a
+--      stakeholder, reads the whole compensation record including the salary and
+--      the review notes. This is the vulnerability evidence.
+--
+--   3. `negativeControlVendorScope` — the vendor legitimately sees the payment
+--      instruction it needs to do its job. This rules out the alternative reading
+--      of (2): that the vendor sees the record because the runner grants blanket
+--      visibility rather than because the template names it as an observer.
+--
+-- What this oracle does NOT establish
+--   Daml Script's projection is not the Canton network. Nothing here demonstrates
+--   what a participant node stores, transmits, or could infer, and nothing here
+--   concerns explicit contract disclosure. The claim is limited to the stakeholder
+--   set the template declares, which is what the defect is about.
+module Oracle where
+
+import DA.Assert ((===))
+import DA.List (sort)
+import Daml.Script
+
+import Payroll
+
+data Fixture = Fixture
+  with
+    employer : Party
+    employee : Party
+    vendor : Party
+    outsider : Party
+    recordId : ContractId CompensationRecord
+
+salaryAmount : Decimal
+salaryAmount = 185000.0
+
+confidentialNotes : Text
+confidentialNotes = "Flight risk; counter-offer approved up to 210k"
+
+-- Allocates the parties and issues one compensation record plus the payment
+-- instruction the vendor is legitimately entitled to see.
+setupFixture : Script Fixture
+setupFixture = do
+  employer <- allocateParty "Employer"
+  employee <- allocateParty "Employee"
+  vendor <- allocateParty "PayrollVendor"
+  outsider <- allocateParty "Outsider"
+
+  recordId <- submit employer do
+    createCmd CompensationRecord with
+      employer = employer
+      employee = employee
+      vendor = vendor
+      annualSalary = salaryAmount
+      reviewNotes = confidentialNotes
+
+  submit employer do
+    createCmd PaymentInstruction with
+      employer = employer
+      employee = employee
+      vendor = vendor
+      amount = 15416.67
+
+  pure Fixture with
+    employer = employer
+    employee = employee
+    vendor = vendor
+    outsider = outsider
+    recordId = recordId
+
+-- PROBE (T077): does a Script query reflect stakeholder-based visibility?
+--
+-- Establishes the meaning of every query result that follows. If this script ever
+-- fails, the exposure evidence below must not be read as a privacy result.
+privacyQueryProbe : Script ()
+privacyQueryProbe = do
+  fixture <- setupFixture
+
+  -- The signatory sees its own contract.
+  employerView <- query @CompensationRecord fixture.employer
+  assertMsg
+    "F02 probe: the employer signed the record and must see it"
+    (length employerView == 1)
+
+  -- A party named nowhere on the contract sees nothing. This is the discriminating
+  -- half of the probe: it shows `query` is filtered rather than global.
+  outsiderView <- query @CompensationRecord fixture.outsider
+  assertMsg
+    "F02 probe: an outsider must not see a contract that does not name it"
+    (null outsiderView)
+
+  -- The outsider is a real, allocated party that can see contracts naming it, so
+  -- the empty result above is filtering rather than an inert or unknown party.
+  outsiderRecordId <- submit fixture.employer do
+    createCmd CompensationRecord with
+      employer = fixture.employer
+      employee = fixture.outsider
+      vendor = fixture.vendor
+      annualSalary = 1.0
+      reviewNotes = "probe control"
+
+  outsiderOwnView <- query @CompensationRecord fixture.outsider
+  assertMsg
+    "F02 probe: the outsider must see a contract that does name it"
+    (map fst outsiderOwnView == [outsiderRecordId])
+
+-- EXPLOIT: the vendor reads compensation data it has no need to see.
+exploitVendorReadsCompensation : Script ()
+exploitVendorReadsCompensation = do
+  fixture <- setupFixture
+
+  vendorView <- query @CompensationRecord fixture.vendor
+
+  case vendorView of
+    [] ->
+      abort "F02 exploit: expected the vendor to see the compensation record"
+    [(contractId, payload)] -> do
+      contractId === fixture.recordId
+      -- The whole contract is disclosed, not a projection of it: the confidential
+      -- fields arrive intact.
+      payload.annualSalary === salaryAmount
+      payload.reviewNotes === confidentialNotes
+    _ ->
+      abort "F02 exploit: expected exactly one compensation record"
+
+-- NEGATIVE CONTROL: the vendor's visibility tracks the declared stakeholder set.
+--
+-- The vendor sees the payment instruction, which legitimately names it. Combined
+-- with the probe, this shows the exploit result comes from the template naming the
+-- vendor as an observer, not from the vendor seeing everything.
+negativeControlVendorScope : Script ()
+negativeControlVendorScope = do
+  fixture <- setupFixture
+
+  instructions <- query @PaymentInstruction fixture.vendor
+  assertMsg
+    "F02 control: the vendor must see the payment instruction it is named on"
+    (length instructions == 1)
+
+  -- The employee is a stakeholder on the compensation record and not on nothing
+  -- else; visibility is per-contract, which is the granularity the defect is about.
+  employeeView <- query @CompensationRecord fixture.employee
+  assertMsg
+    "F02 control: the employee must see their own compensation record"
+    (map fst employeeView == [fixture.recordId])
+
+  stakeholders <- pure (sort [fixture.employee, fixture.vendor])
+  assertMsg
+    "F02 control: employee and vendor must be distinct parties"
+    (length stakeholders == 2)
+
+-- Documented oracle entry point, named by expected.json.
+oracle : Script ()
+oracle = do
+  privacyQueryProbe
+  exploitVendorReadsCompensation
+  negativeControlVendorScope

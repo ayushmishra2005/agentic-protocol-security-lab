@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "f03-missing-multiparty",
+  "damlSdkVersion": "3.5.5",
+  "description": "The Withdraw choice on the JointAccount template names holderA alone as its controller, so one holder's authority suffices to move value out of an account whose withdrawals are meant to require both holders.",
+  "expectedFindings": [
+    {
+      "id": "f03-withdraw-single-holder-authority",
+      "class": "missing_multi_party_authorization",
+      "mustCiteTemplate": "JointAccount",
+      "mustCiteChoice": "Withdraw"
+    }
+  ],
+  "expectedInvariants": [
+    {
+      "id": "f03-withdrawal-requires-both-holders",
+      "class": "missing_multi_party_authorization"
+    }
+  ],
+  "allowedExtraClasses": ["incorrect_controller"],
+  "generatedTestExpectations": {
+    "mustCompile": true,
+    "mustExposeExpectedBehavior": true
+  },
+  "oracleScript": "Oracle:oracle"
+}

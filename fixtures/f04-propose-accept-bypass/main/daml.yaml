@@ -1,0 +1,7 @@
+sdk-version: 3.5.5
+name: f04-propose-accept-bypass-main
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib

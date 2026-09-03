@@ -19,8 +19,8 @@ production audit tool. Scoring against fixtures is also still unimplemented.
 
 What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
-allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
-oracle proving the defect on the real toolchain:
+allowed into the runtime, and four vulnerable fixtures, each with a host-owned, independently
+reviewed oracle proving the defect on the real toolchain:
 
 | Artifact | Purpose |
 |---|---|
@@ -81,6 +81,18 @@ The deterministic F01 end-to-end tests run against the real Daml 3.5.5 toolchain
 client and no credential. Analysing an ordinary project hides nothing; withholding a benchmark
 fixture's own expectation and oracle is requested explicitly by the caller that evaluates it, not
 implied by any filename.
+
+Four fixtures are verified this way: F01 wrong controller, F02 template-level observer exposure, F03
+missing multi-party authorization, and F04 propose/accept bypass. Each oracle demonstrates the
+vulnerable transition succeeding, and — where the failure kind carries the meaning — pins a typed
+`AuthorizationError` for the party that should be refused, so a passing oracle cannot be explained by
+authorization simply not being enforced.
+
+F02 additionally carries a probe establishing what its query results mean. A Daml Script `query` in
+this toolchain is filtered by stakeholder: a party named nowhere on a contract sees nothing, and the
+same party sees contracts that do name it. F02's exposure result can therefore be read as evidence
+about the declared stakeholder set. That is the limit of the claim: it says nothing about what a
+Canton participant node stores or transmits, and nothing about explicit contract disclosure.
 
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 

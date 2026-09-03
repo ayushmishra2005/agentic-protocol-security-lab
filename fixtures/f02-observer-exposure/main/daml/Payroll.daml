@@ -1,0 +1,50 @@
+-- F02: template-level observer exposure.
+--
+-- This package is a security fixture. The defect below is deliberate. Do not fix
+-- it: the oracle in the sibling test package asserts that the defect is still
+-- present, so repairing the template makes the fixture fail by design.
+--
+-- Intended disclosure policy
+--   A CompensationRecord states what an employer pays an employee. The employee and
+--   the employer are parties to it. A payroll vendor processes the payment run, so it
+--   is named on the contract, but the vendor is engaged only to move an already
+--   agreed amount: it has no business need to read the salary or the review notes.
+--
+-- The defect
+--   `vendor` is declared as a template-level `observer`. Observer status in Daml is
+--   whole-contract, not per-field, so naming the vendor as an observer discloses
+--   every field of the contract to it, including `annualSalary` and `reviewNotes`.
+--
+-- Scope of the claim
+--   This is a TEMPLATE-LEVEL OBSERVER EXPOSURE defect: the stakeholder set written
+--   into the template is wider than the disclosure policy requires. It is not a
+--   claim about explicit contract disclosure (the off-ledger `disclose` mechanism,
+--   which grants read rights at submission time), and it is not a claim about
+--   Canton-network privacy or about what any particular participant node stores.
+module Payroll where
+
+template CompensationRecord
+  with
+    employer : Party
+    employee : Party
+    vendor : Party
+    annualSalary : Decimal
+    reviewNotes : Text
+  where
+    signatory employer
+    -- The employee is a legitimate stakeholder. The vendor should not be one: it
+    -- needs a payment instruction, not the compensation record. This single word is
+    -- the vulnerability.
+    observer employee, vendor
+
+-- The disclosure the vendor legitimately needs: who to pay, and how much to move
+-- for this run. It deliberately does not carry the salary or the review notes.
+template PaymentInstruction
+  with
+    employer : Party
+    employee : Party
+    vendor : Party
+    amount : Decimal
+  where
+    signatory employer
+    observer vendor

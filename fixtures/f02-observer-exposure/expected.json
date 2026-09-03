@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "f02-observer-exposure",
+  "damlSdkVersion": "3.5.5",
+  "description": "The CompensationRecord template names the payroll vendor as a template-level observer, so the vendor is disclosed the whole contract including annualSalary and reviewNotes, which it has no business need to read. This concerns template-level observer exposure — the stakeholder set declared on the template — and not explicit contract disclosure or read delegation, and it makes no claim about Canton-network privacy.",
+  "expectedFindings": [
+    {
+      "id": "f02-compensation-vendor-observer",
+      "class": "observer_exposure",
+      "mustCiteTemplate": "CompensationRecord"
+    }
+  ],
+  "expectedInvariants": [
+    {
+      "id": "f02-compensation-visible-only-to-employer-and-employee",
+      "class": "observer_exposure"
+    }
+  ],
+  "allowedExtraClasses": [],
+  "generatedTestExpectations": {
+    "mustCompile": true,
+    "mustExposeExpectedBehavior": true
+  },
+  "oracleScript": "Oracle:oracle"
+}

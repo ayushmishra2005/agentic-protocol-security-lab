@@ -1,0 +1,91 @@
+-- F04: propose/accept workflow bypass.
+--
+-- This package is a security fixture. The defect below is deliberate. Do not fix
+-- it: the oracle in the sibling test package asserts that the defect is still
+-- present, so repairing the templates makes the fixture fail by design.
+--
+-- Intended authorization policy
+--   A trade binds a seller and a buyer, so it needs both parties' authority. The
+--   workflow expresses that in the standard propose/accept shape: the seller offers
+--   a TradeProposal, and the buyer's `Accept` choice contributes the buyer's
+--   authority, which is what allows the two-signatory SettledTrade to be created.
+--
+-- The defect
+--   The workflow has a second route to a settled state. `SellerConfirm` is
+--   controlled by the seller alone and creates a `ConfirmedTrade`, which the rest of
+--   the system treats as a settled trade, but which the buyer only observes rather
+--   than signs. The buyer's acceptance is therefore not required to reach the
+--   settled state: it can be reached with the seller's authority alone.
+--
+--   Note what the defect is not. The bypass does not work by forging the buyer's
+--   authority — that is impossible, and the oracle demonstrates it. It works because
+--   a state that is meant to represent a concluded, mutually agreed trade was
+--   modelled with a signatory set that omits one of the parties to it.
+module Trade where
+
+-- The seller's offer. The buyer observes it so that it can accept.
+template TradeProposal
+  with
+    seller : Party
+    buyer : Party
+    instrument : Text
+    quantity : Int
+    price : Decimal
+  where
+    signatory seller
+    observer buyer
+
+    -- The intended route: the buyer's authority joins the seller's here, which is
+    -- what makes the two-signatory SettledTrade creatable.
+    choice Accept : ContractId SettledTrade
+      controller buyer
+      do
+        create SettledTrade with
+          seller = seller
+          buyer = buyer
+          instrument = instrument
+          quantity = quantity
+          price = price
+
+    choice Withdraw : ()
+      controller seller
+      do pure ()
+
+    -- The bypass. The seller alone reaches a settled state, because ConfirmedTrade
+    -- does not require the buyer's signature. This single choice is the
+    -- vulnerability.
+    choice SellerConfirm : ContractId ConfirmedTrade
+      controller seller
+      do
+        create ConfirmedTrade with
+          seller = seller
+          buyer = buyer
+          instrument = instrument
+          quantity = quantity
+          price = price
+
+-- The correctly modelled settled trade: both parties are signatories, so it cannot
+-- exist without both authorities.
+template SettledTrade
+  with
+    seller : Party
+    buyer : Party
+    instrument : Text
+    quantity : Int
+    price : Decimal
+  where
+    signatory seller, buyer
+
+-- The defective settled state. It carries the same economic content and is treated
+-- downstream as a concluded trade, but the buyer is merely an observer, so the
+-- seller can bring it into existence unilaterally.
+template ConfirmedTrade
+  with
+    seller : Party
+    buyer : Party
+    instrument : Text
+    quantity : Int
+    price : Decimal
+  where
+    signatory seller
+    observer buyer

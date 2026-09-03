@@ -1,0 +1,7 @@
+sdk-version: 3.5.5
+name: f02-observer-exposure-main
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib

@@ -207,12 +207,12 @@ model client and the real pinned toolchain. That test is additional to the numbe
 **Purpose**: Broaden the scored surface. Each fixture repeats the Phase 5 discipline: oracle proven
 before scoring depends on it.
 
-- [ ] T073 [P] [US2] Create the F02 observer-exposure fixture, oracle, and `expected.json` in `fixtures/f02-observer-exposure/`, with the expectation stating explicitly whether it concerns template-level observer exposure or disclosure-based read delegation
-- [ ] T074 [P] [US2] Create the F03 missing-multi-party-authorization fixture, oracle, and `expected.json` in `fixtures/f03-missing-multiparty/`, writing multi-party submissions as `submit (actAs [...] <> readAs [...])` and asserting the typed `AuthorizationError` case
-- [ ] T075 [P] [US2] Create the F04 propose/accept-bypass fixture, oracle, and `expected.json` in `fixtures/f04-propose-accept-bypass/`
-- [ ] T076 [US2] Verify all three oracles against the real toolchain and record their observed outcomes
-- [ ] T077 [US2] For F02 specifically, establish and record whether a Script query reflects the ledger privacy model; if it does not, score F02 on finding and invariant only and record the discrepancy rather than working around it
-- [ ] T078 [US2] Extend `tests/integration/` with oracle tests for F02, F03, and F04
+- [x] T073 [P] [US2] Create the F02 observer-exposure fixture, oracle, and `expected.json` in `fixtures/f02-observer-exposure/`, with the expectation stating explicitly whether it concerns template-level observer exposure or disclosure-based read delegation
+- [x] T074 [P] [US2] Create the F03 missing-multi-party-authorization fixture, oracle, and `expected.json` in `fixtures/f03-missing-multiparty/`, writing multi-party submissions as `submit (actAs [...] <> readAs [...])` and asserting the typed `AuthorizationError` case
+- [x] T075 [P] [US2] Create the F04 propose/accept-bypass fixture, oracle, and `expected.json` in `fixtures/f04-propose-accept-bypass/`
+- [x] T076 [US2] Verify all three oracles against the real toolchain and record their observed outcomes
+- [x] T077 [US2] For F02 specifically, establish and record whether a Script query reflects the ledger privacy model; if it does not, score F02 on finding and invariant only and record the discrepancy rather than working around it
+- [x] T078 [US2] Extend `tests/integration/` with oracle tests for F02, F03, and F04
 
 **Checkpoint**: Four proven fixtures with reproducible oracles.
 

@@ -1,0 +1,51 @@
+-- F03: missing multi-party authorization.
+--
+-- This package is a security fixture. The defect below is deliberate. Do not fix
+-- it: the oracle in the sibling test package asserts that the defect is still
+-- present, so repairing the template makes the fixture fail by design.
+--
+-- Intended authorization policy
+--   A JointAccount is held by two holders under a bank. It is joint in the sense
+--   that matters: moving money out is a decision both holders must authorize. Either
+--   holder may act alone only for operations that cannot remove value, such as
+--   recording a deposit.
+--
+-- The defect
+--   `Withdraw` names `holderA` alone as its controller. A choice requires the
+--   authority of all of its controllers, so listing one holder means one holder's
+--   authority suffices. `holderA` can drain the account without `holderB` ever
+--   authorizing it, and `holderB` has no way to withhold consent.
+module JointAccount where
+
+template JointAccount
+  with
+    bank : Party
+    holderA : Party
+    holderB : Party
+    balance : Decimal
+  where
+    signatory bank
+    observer holderA, holderB
+
+    ensure balance >= 0.0
+
+    -- Should be `controller holderA, holderB`. Naming one holder is the
+    -- vulnerability: it turns a joint decision into a unilateral one.
+    choice Withdraw : ContractId JointAccount
+      with
+        amount : Decimal
+      controller holderA
+      do
+        assertMsg "Withdrawal exceeds the available balance" (amount <= balance)
+        create this with balance = balance - amount
+
+    -- Correctly unilateral: a deposit adds value and needs one holder only.
+    choice Deposit : ContractId JointAccount
+      with
+        depositor : Party
+        amount : Decimal
+      controller depositor
+      do
+        assertMsg "Only a holder may deposit" (depositor == holderA || depositor == holderB)
+        assertMsg "Deposit must be positive" (amount > 0.0)
+        create this with balance = balance + amount
