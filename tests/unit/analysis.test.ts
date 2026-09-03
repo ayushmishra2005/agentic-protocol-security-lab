@@ -210,6 +210,22 @@ function priorsUpTo(phase: ModelPhase, evidence: readonly string[]) {
   }));
 }
 
+/**
+ * Record a tool invocation so a prior artifact has something real to cite.
+ *
+ * An invariant must cite evidence to satisfy its schema, and a phase rejects an
+ * artifact citing an identifier that resolves to nothing. A prior built out of
+ * thin air fails one rule or the other, so the reference is made real first.
+ */
+function seedEvidence(context: ToolContext): string {
+  return context.store.append({
+    toolName: 'repo_read_file',
+    outcome: 'ok',
+    parameters: { path: 'daml/Vault.daml' },
+    result: { bytesRead: SOURCE.length },
+  }).evidenceId;
+}
+
 // --- prompt boundary (T056) -------------------------------------------------
 
 describe('prompt boundary', () => {
@@ -569,7 +585,7 @@ describe('scenarios phase', () => {
       client,
       context,
       targetPath: '.',
-      priorArtifacts: priorsUpTo('scenarios', []),
+      priorArtifacts: priorsUpTo('scenarios', [seedEvidence(context)]),
     });
 
     assert.equal(result.status, 'valid');
@@ -591,7 +607,7 @@ describe('scenarios phase', () => {
       client,
       context,
       targetPath: '.',
-      priorArtifacts: priorsUpTo('scenarios', []),
+      priorArtifacts: priorsUpTo('scenarios', [seedEvidence(context)]),
       maxValidationAttempts: 2,
     });
 
@@ -622,7 +638,7 @@ describe('scenarios phase', () => {
       client,
       context,
       targetPath: '.',
-      priorArtifacts: priorsUpTo('scenarios', []),
+      priorArtifacts: priorsUpTo('scenarios', [seedEvidence(context)]),
       maxValidationAttempts: 2,
     });
 

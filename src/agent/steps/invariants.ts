@@ -39,7 +39,9 @@ export const invariantsPhase: PhaseDefinition<'invariants'> = {
   acceptance: [
     'invariants: each with an id, a class, and a statement naming the construct and the role.',
     'Set template and choice to the names as they appear in the source.',
-    'evidence: identifiers for the tool calls that showed the construct the invariant is about.',
+    'evidence: identifiers for the tool calls that showed the construct the invariant is about. ' +
+      'At least one is required on every invariant, and each must be an identifier a tool result ' +
+      'returned to you in this run. An invariant citing nothing is rejected rather than recorded.',
     'An invariant states what must hold. It does not state whether it currently holds — that is ' +
       'decided later by execution, not here.',
     'Do not restate a threat as an invariant. A threat is what an actor might do; an invariant is ' +

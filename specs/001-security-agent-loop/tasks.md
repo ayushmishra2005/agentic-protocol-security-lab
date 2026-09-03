@@ -73,7 +73,7 @@ a tool. Nothing downstream may bypass these modules.
 - [x] T014 [P] Define phase artifact schemas in `src/schemas/phases.ts` (one Zod schema per phase in the fixed sequence)
 - [x] T015 [P] Define finding, invariant, and evidence-reference schemas in `src/schemas/findings.ts`, making evidence references structurally required for any finding whose state is confirmed
 - [x] T016 [P] Define the report schema in `src/schemas/report.ts`
-- [x] T017 [P] Define the fixture expectation schema in `src/schemas/expected.ts`, including an explicit `allowed_extra_classes` set used to distinguish false positives
+- [x] T017 [P] Define the fixture expectation schema in `src/schemas/expected.ts`, including an explicit `allowedExtraClasses` set used to distinguish false positives
 - [x] T018 Implement path confinement in `src/security/paths.ts`: resolve, follow symlinks, and reject any path escaping the workspace root
 - [x] T019 Implement the argv allowlist and process spawn in `src/security/exec.ts`: fixed executable paths, explicit permitted flags, timeouts, output size caps, no shell interpolation
 - [x] T020 Implement secret redaction in `src/security/redact.ts`, applied to all captured output before it is persisted or returned to the model
@@ -334,8 +334,10 @@ started before Phase 13 is complete.
 
 ## Notes
 
-- Task count: **97** total — **95** in the scored MVP (T001–T095), plus **2** stretch tasks.
-- Completed: T001–T004.
+- Task count: **106** total — **95** in the scored MVP (T001–T095), **2** stretch tasks (T096–T097),
+  **8** convergence tasks (T098–T105), and **1** deferred run (T106).
+- Completed: T001–T095 and T098–T105. T096–T097 are stretch and deliberately not started. T106 is
+  deferred: it needs a provider credential and a deliberate decision to spend it.
 - `[P]` marks tasks touching different files with no ordering dependency.
 - Every fixture requires a host-owned, independently reviewed oracle, beyond the evaluated model's reach, before it may be scored (Article IX).
 - MCP is a stretch goal only and must never block the scored MVP.
@@ -352,14 +354,54 @@ Phase 14 analysis and convergence pass over the constitution, `spec.md`, `plan.m
 the code as delivered through Phase 13. No code, spec, or plan text was changed by that pass; these
 tasks carry the work.
 
-- [ ] T098 Close the Article I gap for invariants: the constitution requires every finding **and every invariant** to carry at least one resolvable evidence reference, but `InvariantSchema` in `src/schemas/findings.ts` and the phase artifact schemas in `src/schemas/phases.ts` accept an empty `evidence` array, and no host gate or scorer dimension counts a zero-evidence invariant. Either require at least one reference at the report boundary or count such invariants as unsupported claims in `src/eval/metrics.ts`, and test the chosen rule. Note that `isUnsupportedClaim` in `src/schemas/findings.ts` is currently exported and never called
-- [ ] T099 Correct the model-runtime description in `plan.md`: it states that "tool definitions use strict schema validation", but provider-side `strict` is a beta-gated field that the non-beta Messages endpoint rejects, so `src/model/tools.ts` deliberately does not send it. Host-side Zod validation is the sole artifact gate, which is what the surrounding paragraph already argues for; the sentence should say so rather than describe a control that is not in force
-- [ ] T100 Record the controlled live-model run as explicit scoped work. SC-001 through SC-004 and SC-008 describe per-fixture results carrying a model identifier, and no task in this list covers obtaining them with a real provider. Until such a run exists, every published scorecard carries `harness_validation` provenance and no benchmark claim may be made; the task list should say that instead of leaving the gap implicit
-- [ ] T101 Reconcile the expectation-field naming: `plan.md` and T017 name an `allowed_extra_classes` set, while the implemented schema field in `src/schemas/expected.ts` is `allowedExtraClasses`. Pick the implemented name in the prose so a reviewer grepping either artifact finds the other
-- [ ] T102 Reconcile the phase count in `plan.md`: Scale/Scope says "ten model-facing phases", while the same document states that `report` is a host state that sends no prompt, and the implementation agrees — `MODEL_PHASE_SEQUENCE` has ten members but the last is host-assembled. State the model-facing count and the host states separately
-- [ ] T103 Update the Project Structure tree in `plan.md` for what Phases 12 and 13 delivered: `scripts/` holding the example-capture tool, and the fact that the generic target-view copier lives in `src/agent/targetView.ts` while `src/eval/analysisView.ts` keeps only benchmark policy — which is what allows the architectural test to assert that no model-facing module imports `src/eval/`
-- [ ] T104 Record in `plan.md` why the real-toolchain integration suite is not part of hosted CI, so a reader can tell whether SC-005 is verified there or only locally. The workflow runs install, typecheck, lint, format check, and unit tests by design
-- [ ] T105 Refresh the stale metadata in the governing documents: `spec.md` is still marked **Status: Draft** although the MVP is delivered through Phase 13, and the Notes block in this file still reads "Completed: T001–T004" and states a task count that predates Phases 12–14
+- [x] T098 Close the Article I gap for invariants: the constitution requires every finding **and every invariant** to carry at least one resolvable evidence reference, but `InvariantSchema` in `src/schemas/findings.ts` and the phase artifact schemas in `src/schemas/phases.ts` accept an empty `evidence` array, and no host gate or scorer dimension counts a zero-evidence invariant. Either require at least one reference at the report boundary or count such invariants as unsupported claims in `src/eval/metrics.ts`, and test the chosen rule. Note that `isUnsupportedClaim` in `src/schemas/findings.ts` is currently exported and never called
+  - **Done.** Both halves of the rule, because either alone leaves a hole. `InvariantSchema.evidence`
+    now requires at least one reference, which gates the invariants phase artifact and the report
+    boundary from the same definition; an invariant left with nothing that *resolves* is dropped at
+    assembly and reported as a `Downgrade` with `subject: 'invariant'` rather than published, since
+    Article I gives an invariant no unsupported state to be emitted in, unlike a finding.
+    `computeMetrics` now counts unsupported claims over findings **and** invariants through
+    `isUnsupportedClaim`, which is what finally calls it, so the scorer registers the failure even if
+    the schema gate were ever relaxed. The invariants phase acceptance text states the requirement to
+    the model. Tested at each point: schema rejection, artifact rejection, invariant dropped when no
+    citation resolves, invariant kept when one of two resolves, and the scorer count.
+- [x] T099 Correct the model-runtime description in `plan.md`: it states that "tool definitions use strict schema validation", but provider-side `strict` is a beta-gated field that the non-beta Messages endpoint rejects, so `src/model/tools.ts` deliberately does not send it. Host-side Zod validation is the sole artifact gate, which is what the surrounding paragraph already argues for; the sentence should say so rather than describe a control that is not in force
+  - **Done.** `plan.md` now records that tool definitions carry an input schema but that provider-side
+    `strict` is not requested, and that host-side Zod validation is the sole gate on artifacts and
+    tool arguments.
+- [x] T100 Record the controlled live-model run as explicit scoped work. SC-001 through SC-004 and SC-008 describe per-fixture results carrying a model identifier, and no task in this list covers obtaining them with a real provider. Until such a run exists, every published scorecard carries `harness_validation` provenance and no benchmark claim may be made; the task list should say that instead of leaving the gap implicit
+  - **Done.** Recorded below as T106, deferred rather than performed: it needs a provider credential
+    and a deliberate decision to spend it. `spec.md` now states the same dependency in its status.
+- [x] T101 Reconcile the expectation-field naming: `plan.md` and T017 name an `allowed_extra_classes` set, while the implemented schema field in `src/schemas/expected.ts` is `allowedExtraClasses`. Pick the implemented name in the prose so a reviewer grepping either artifact finds the other
+  - **Done.** `plan.md` and T017 now say `allowedExtraClasses`, matching `src/schemas/expected.ts`.
+- [x] T102 Reconcile the phase count in `plan.md`: Scale/Scope says "ten model-facing phases", while the same document states that `report` is a host state that sends no prompt, and the implementation agrees — `MODEL_PHASE_SEQUENCE` has ten members but the last is host-assembled. State the model-facing count and the host states separately
+  - **Done.** Scale/Scope now says ten members of `MODEL_PHASE_SEQUENCE`, nine of which send a prompt,
+    with `report` named as the host-assembled state and `evaluate` as host-only and outside the
+    sequence.
+- [x] T103 Update the Project Structure tree in `plan.md` for what Phases 12 and 13 delivered: `scripts/` holding the example-capture tool, and the fact that the generic target-view copier lives in `src/agent/targetView.ts` while `src/eval/analysisView.ts` keeps only benchmark policy — which is what allows the architectural test to assert that no model-facing module imports `src/eval/`
+  - **Done.** The tree now carries `scripts/capture-example.ts` and `src/agent/targetView.ts`, and the
+    Structure Decision explains why the copier had to leave `src/eval/` for the import-graph test to
+    hold.
+- [x] T104 Record in `plan.md` why the real-toolchain integration suite is not part of hosted CI, so a reader can tell whether SC-005 is verified there or only locally. The workflow runs install, typecheck, lint, format check, and unit tests by design
+  - **Done.** `plan.md` gains a verification-split section: the runner has no Daml SDK, installing one
+    would either unpin the toolchain or slow every push, and **SC-005 is therefore verified locally,
+    not by hosted CI.**
+- [x] T105 Refresh the stale metadata in the governing documents: `spec.md` is still marked **Status: Draft** although the MVP is delivered through Phase 13, and the Notes block in this file still reads "Completed: T001–T004" and states a task count that predates Phases 12–14
+  - **Done.** `spec.md` is no longer marked Draft, and the Notes block above states the real task count
+    and completion state.
+
+---
+
+## Deferred: requires a provider credential
+
+**Purpose**: Recorded by T100 so the gap between the success criteria and what has actually been
+measured is explicit. Not part of the convergence pass and not to be started with it.
+
+- [ ] T106 Perform a controlled live-model run over F01–F04 with the real configured provider, one run
+  per fixture, no tuning between fixtures, and publish the resulting scorecard with `live_model`
+  provenance and the exact model identifier. Until that run exists, every published scorecard carries
+  `harness_validation` provenance, SC-001 through SC-004 and SC-008 are unmeasured, and no benchmark
+  or model-performance claim may be made anywhere in this repository
 
 **Checkpoint**: Specification, plan, and implementation agree, or every remaining disagreement is a
 numbered task above.

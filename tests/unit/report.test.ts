@@ -208,16 +208,60 @@ describe('report assembly: evidence', () => {
 
     const finding = first(report.findings);
     assert.equal(finding.state, 'unconfirmed');
-    assert.equal(downgrades.length, 1);
     assert.match(finding.detail, /did not resolve/);
+    assert.equal(
+      downgrades.some((entry) => entry.subject === 'finding' && entry.id === finding.id),
+      true,
+    );
 
     // The fabricated identifier is dropped, never substituted.
     assert.equal(
       report.findings.some((entry) => entry.evidence.some((ref) => ref.evidenceId === fabricated)),
       false,
     );
-    // Nor does it survive on the invariant.
-    assert.equal(first(report.invariants).evidence.length, 0);
+
+    // The invariant cited nothing else, so it is not published at all: Article I
+    // gives an invariant no unsupported state to be emitted in.
+    assert.equal(report.invariants.length, 0);
+    assert.equal(
+      downgrades.some((entry) => entry.subject === 'invariant' && entry.id === 'inv-1'),
+      true,
+    );
+  });
+
+  it('keeps an invariant that retains one resolvable reference', async () => {
+    const input = await baseInput();
+    const real = first(input.generatedTests).evidence;
+    const { report, downgrades } = buildReport({
+      ...input,
+      artifacts: input.artifacts.map((entry) =>
+        entry.phase !== 'invariants'
+          ? entry
+          : {
+              phase: 'invariants',
+              artifact: {
+                ...(entry.artifact as object),
+                invariants: [
+                  {
+                    id: 'inv-1',
+                    class: 'incorrect_controller',
+                    statement: 'Only the owner may transfer their holding.',
+                    evidence: [{ evidenceId: 'ev_0123456789abcdef' }, ...real],
+                  },
+                ],
+              },
+            },
+      ),
+    });
+
+    // Dropping the bad reference is not the same as dropping the invariant.
+    const invariant = first(report.invariants);
+    assert.equal(invariant.id, 'inv-1');
+    assert.deepEqual(invariant.evidence, [...real]);
+    assert.equal(
+      downgrades.some((entry) => entry.subject === 'invariant'),
+      false,
+    );
   });
 
   it('never emits a confirmed finding with no evidence at all', async () => {

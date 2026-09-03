@@ -88,7 +88,22 @@ export const InvariantSchema = z.strictObject({
   statement: z.string().min(1).max(1_000),
   template: z.string().max(128).optional(),
   choice: z.string().max(128).optional(),
-  evidence: z.array(EvidenceRefSchema),
+  /**
+   * Required, unlike a finding's.
+   *
+   * Article I obliges every finding *and every invariant* to carry a resolvable
+   * evidence reference. Findings have an explicit carve-out — one with no
+   * evidence is emitted as unsupported and counted as a scored defect — and
+   * invariants have none, so the obligation is enforced here in the schema
+   * rather than left to whoever assembles the report.
+   *
+   * An invariant is a claim about what the target guarantees. Stated with
+   * nothing behind it, it is the exact shape of assertion this pipeline exists
+   * to refuse: it reads as a property of the code while being a property of the
+   * model's prose. References are checked for resolution at the report
+   * boundary; one that cannot be resolved is not evidence.
+   */
+  evidence: z.array(EvidenceRefSchema).min(1),
 });
 
 export type EvidenceRef = z.infer<typeof EvidenceRefSchema>;

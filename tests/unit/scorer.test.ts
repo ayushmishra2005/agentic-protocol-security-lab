@@ -433,4 +433,18 @@ describe('metrics count claims and false positives independently of dimensions',
 
     assert.equal(metrics.unsupportedClaims, 2);
   });
+
+  it('counts an invariant with no evidence as an unsupported claim', () => {
+    // The schema and the report boundary both refuse to produce one, so this
+    // report is hand-built to prove the scorer would register the failure
+    // rather than score such an invariant as a free claim.
+    const metrics = computeMetrics(
+      EXPECTED,
+      report({
+        invariants: [{ ...INVARIANT, evidence: [] }],
+      }),
+    );
+
+    assert.equal(metrics.unsupportedClaims, 1);
+  });
 });

@@ -4,7 +4,9 @@
 
 **Created**: 2026-09-02
 
-**Status**: Draft
+**Status**: Implemented through Phase 16. The scored MVP (T001–T095) is delivered and the
+convergence items (T098–T105) are closed; the success criteria that name a model identifier await the
+controlled live-model run recorded as T106 in `tasks.md`.
 
 **Input**: Phase 1 MVP scope for an evidence-backed Daml security analysis loop.
 

@@ -94,14 +94,30 @@ interface Candidate {
   readonly supportingTestIds: readonly string[];
 }
 
+/**
+ * Something the host refused to publish as stated, and why.
+ *
+ * `subject` distinguishes the two cases, because they end differently. A finding
+ * that loses its evidence is downgraded and kept visible, so a reader sees the
+ * claim and its weakened state. An invariant that loses its evidence cannot be
+ * kept at all — the schema requires a reference, and Article I gives invariants
+ * no unsupported state to fall back to — so it is dropped, and this record is
+ * the only trace of it.
+ */
+export interface Downgrade {
+  readonly subject: 'finding' | 'invariant';
+  readonly id: string;
+  readonly reason: string;
+}
+
 export interface BuildReportResult {
   readonly report: Report;
   /**
-   * Findings that were downgraded during assembly, and why. Surfaced for the
-   * caller's logs; the reasons are also written into the finding detail, so the
-   * report is self-contained.
+   * What was downgraded or dropped during assembly, and why. Surfaced for the
+   * caller's logs; a downgraded finding also carries its reason in its own
+   * detail, so the report stays self-contained.
    */
-  readonly downgrades: readonly { readonly findingId: string; readonly reason: string }[];
+  readonly downgrades: readonly Downgrade[];
 }
 
 function artifactFor(artifacts: readonly ValidatedPhaseArtifact[], phase: string): unknown {
@@ -274,9 +290,9 @@ function describeCandidate(
 function gate(
   input: BuildReportInput,
   candidates: readonly Candidate[],
-): { readonly findings: Finding[]; readonly downgrades: BuildReportResult['downgrades'] } {
+): { readonly findings: Finding[]; readonly downgrades: Downgrade[] } {
   const findings: Finding[] = [];
-  const downgrades: { findingId: string; reason: string }[] = [];
+  const downgrades: Downgrade[] = [];
 
   for (const candidate of candidates) {
     const { kept, dropped } = resolvableEvidence(input.store, candidate.finding.evidence);
@@ -306,7 +322,7 @@ function gate(
 
     const reason = reasons.join(' ');
     if (candidate.finding.state === 'confirmed') {
-      downgrades.push({ findingId: candidate.finding.id, reason });
+      downgrades.push({ subject: 'finding', id: candidate.finding.id, reason });
     }
 
     findings.push({
@@ -323,16 +339,42 @@ function gate(
   return { findings, downgrades };
 }
 
-/** Invariants, with unresolvable citations removed. */
-function collectInvariants(input: BuildReportInput): Invariant[] {
-  const invariants =
+/**
+ * Invariants, with unresolvable citations removed.
+ *
+ * An invariant left with nothing that resolves is dropped rather than published,
+ * which is what Article I requires of it: findings may be emitted unsupported,
+ * invariants may not. Dropping is reported, never silent — an invariant that
+ * vanished without a record would be indistinguishable from one the model never
+ * produced.
+ */
+function collectInvariants(input: BuildReportInput): {
+  readonly invariants: Invariant[];
+  readonly dropped: Downgrade[];
+} {
+  const source =
     (artifactFor(input.artifacts, 'invariants') as { invariants: readonly Invariant[] } | undefined)
       ?.invariants ?? [];
 
-  return invariants.map((invariant) => ({
-    ...invariant,
-    evidence: resolvableEvidence(input.store, invariant.evidence).kept,
-  }));
+  const invariants: Invariant[] = [];
+  const dropped: Downgrade[] = [];
+
+  for (const invariant of source) {
+    const { kept } = resolvableEvidence(input.store, invariant.evidence);
+    if (kept.length === 0) {
+      dropped.push({
+        subject: 'invariant',
+        id: invariant.id,
+        reason:
+          'Every cited evidence reference failed to resolve to a recorded tool invocation, so the ' +
+          'invariant was dropped rather than published without support.',
+      });
+      continue;
+    }
+    invariants.push({ ...invariant, evidence: kept });
+  }
+
+  return { invariants, dropped };
 }
 
 function collectGeneratedTests(input: BuildReportInput): GeneratedTestResult[] {
@@ -406,6 +448,7 @@ export function buildReport(input: BuildReportInput): BuildReportResult {
   }
 
   const { findings, downgrades } = gate(input, collectCandidates(input));
+  const { invariants, dropped } = collectInvariants(input);
   const generatedTests = collectGeneratedTests(input);
 
   const draft = {
@@ -426,7 +469,7 @@ export function buildReport(input: BuildReportInput): BuildReportResult {
       toolInvocationsRefused: input.usage.toolCallsRefused,
     },
     findings,
-    invariants: collectInvariants(input),
+    invariants,
     generatedTests,
     ...(input.revision === undefined ? {} : { revision: input.revision }),
     degradedPhases: [...input.degradedPhases],
@@ -446,7 +489,7 @@ export function buildReport(input: BuildReportInput): BuildReportResult {
     );
   }
 
-  return { report: parsed.data, downgrades };
+  return { report: parsed.data, downgrades: [...downgrades, ...dropped] };
 }
 
 /**

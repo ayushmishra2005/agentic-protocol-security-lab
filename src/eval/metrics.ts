@@ -14,7 +14,7 @@
  * get right by actually reading the source.
  */
 import type { Expected, ExpectedFinding } from '../schemas/expected.js';
-import type { Finding, Invariant } from '../schemas/findings.js';
+import { isUnsupportedClaim, type Finding, type Invariant } from '../schemas/findings.js';
 import type { GeneratedTestResult, Report } from '../schemas/report.js';
 
 export interface FixtureMetrics {
@@ -31,7 +31,7 @@ export interface FixtureMetrics {
   readonly testCompiled: boolean;
   /** A generated test ran and produced the outcome it declared beforehand. */
   readonly expectedBehaviorExposed: boolean;
-  /** Findings citing no evidence at all. */
+  /** Findings and invariants citing no evidence at all. */
   readonly unsupportedClaims: number;
   /** Findings of a class neither expected nor explicitly allowed. */
   readonly falsePositives: number;
@@ -115,7 +115,13 @@ export function computeMetrics(expected: Expected, report: Report): FixtureMetri
     testGenerated: report.generatedTests.length > 0,
     testCompiled: compiledTests.length > 0,
     expectedBehaviorExposed: exposed.length > 0,
-    unsupportedClaims: report.findings.filter((finding) => finding.evidence.length === 0).length,
+    // Findings and invariants both. Article I calls an invariant a claim about
+    // the target exactly as a finding is, and the schema now requires one to
+    // cite evidence; counting only findings would leave the scorer unable to
+    // register the failure if that gate were ever relaxed.
+    unsupportedClaims:
+      report.findings.filter((finding) => isUnsupportedClaim(finding)).length +
+      report.invariants.filter((invariant) => isUnsupportedClaim(invariant)).length,
     falsePositives: report.findings.filter((finding) => !isAcceptableClass(finding, expected))
       .length,
     findingEvidenceIds: sortedUnique(

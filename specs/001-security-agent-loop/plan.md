@@ -42,8 +42,10 @@ egress; the only outbound path is host-initiated model-provider inference traffi
 confined to a resolved workspace root. Model writes confined to a run-scoped generated-test
 directory. Secrets never enter prompts, artifacts, or logs.
 
-**Scale/Scope**: Four fixtures, one adapter, ten model-facing phases plus a host-only evaluation
-stage.
+**Scale/Scope**: Four fixtures, one adapter, and ten members of `MODEL_PHASE_SEQUENCE`, of which nine
+send a prompt: `report` is a host state that assembles the report from validated artifacts and
+evidence without asking the model for it. `evaluate` is host-only and sits outside the sequence
+entirely.
 
 ### Pinned toolchain
 
@@ -109,7 +111,7 @@ design did not shift; what changed is that each gate now has something executabl
 
 | Article | Delivered evidence | Status |
 |---|---|---|
-| I. Tools before prose | `ConfirmedFindingSchema` requires at least one evidence reference; `renderReport` is a pure function of `report.json`, asserted by test; the confirmation gate refuses to promote a finding whose supporting Script never compiled and ran to its own prediction | PASS, one open item |
+| I. Tools before prose | `ConfirmedFindingSchema` and `InvariantSchema` each require at least one evidence reference; `renderReport` is a pure function of `report.json`, asserted by test; the confirmation gate refuses to promote a finding whose supporting Script never compiled and ran to its own prediction | PASS |
 | II. Allowlisted execution | `src/security/exec.ts` spawns a pinned absolute executable with an argv allowlist and no shell; `src/security/paths.ts` resolves symlinks before use; both are negatively tested for traversal, unlisted flags, and shell metacharacters | PASS |
 | III. Tests authoritative | Generated Scripts are compiled and run by the pinned toolchain; outcomes are sorted into four host-kept-apart states, and only execution matching a pre-declared expectation supports confirmation | PASS |
 | IV. Host-owned eval | The scorer is mechanical class and identifier matching; `tests/unit/evalIsolation.test.ts` asserts over the import graph that no model-facing module reaches `src/eval/`, and that the tool surface exposes nothing that could write a scorecard | PASS |
@@ -119,9 +121,12 @@ design did not shift; what changed is that each gate now has something executabl
 | VIII. Skills to authoritative sources | The provider surface was read from the installed SDK types rather than from memory, which is how the unsupported `strict` tool field was found | PASS |
 | IX. Integration-first | Four fixtures, each with a host-owned, independently reviewed oracle executed on the pinned toolchain and withheld from the evaluated model | PASS |
 
-**Open item against Article I**: the article requires every finding *and every invariant* to carry a
-resolvable evidence reference. Confirmed findings are structurally gated; invariants are not, and no
-scorer dimension counts a zero-evidence invariant. Recorded as T098 rather than silently narrowed.
+**Article I, closed by T098**: the article requires every finding *and every invariant* to carry a
+resolvable evidence reference. Findings were structurally gated; invariants were not. They are now,
+in three places that do not depend on each other — the schema requires a reference, report assembly
+drops an invariant whose citations do not resolve rather than publishing it unsupported, and
+`computeMetrics` counts a zero-evidence invariant as an unsupported claim. The article was not
+narrowed to fit what had been built.
 
 **Not yet demonstrated**: every model interaction so far has been a scripted stand-in. The gates above
 are properties of the host, and the host is what they claim. No statement about model performance is
@@ -167,7 +172,8 @@ src/
 ├── schemas/              # Zod schemas for phase artifacts, findings, report, expectations
 ├── evidence/             # append-only evidence store and evidence ID allocation
 ├── report/               # report.json assembly and report.md rendering
-└── eval/                 # host-only deterministic scorer and fixture runner
+├── eval/                 # host-only scorer, metrics, fixture runner, benchmark view policy
+└── agent/targetView.ts   # generic target-view copier, callable from model-facing code
 
 fixtures/
 └── f01-wrong-controller/ # main package, test package with oracle Script, expected.json
@@ -180,13 +186,20 @@ tests/
 examples/
 └── run-f01/              # checked-in redacted example run
 
+scripts/
+└── capture-example.ts    # host tool that redacts a run into examples/, reproducibly
+
 runs/                     # git-ignored per-run output, including model-writable generated tests
 ```
 
 **Structure Decision**: Single project. `src/security/` is deliberately separate from `src/tools/` so
 that confinement and allowlisting are enforced in one reviewable place that every tool must pass
 through, rather than being re-implemented per tool. `src/eval/` is host-only and never reachable from
-model-facing code paths. `fixtures/` and `examples/` are committed; `runs/` is not.
+model-facing code paths, which a unit test asserts by walking the import graph. That test is why the
+generic directory copier lives in `src/agent/targetView.ts`: `analyze` needs to copy a target into a
+scratch workspace, so the copier must be callable from model-facing code, while
+`src/eval/analysisView.ts` keeps only the benchmark policy — which entries are host-only — and stays
+out of that graph. `fixtures/` and `examples/` are committed; `runs/` is not.
 
 ### Architecture
 
@@ -257,8 +270,11 @@ Four deliberate choices about the model runtime:
   logged as evidence, and the loop must be explainable in the README. A managed helper that hides
   iterations cannot satisfy Article I.
 - **Schema-constrained outputs.** Phase artifacts are requested as JSON conforming to a JSON Schema,
-  and tool definitions use strict schema validation. Host-side Zod validation still runs, because the
-  host does not delegate its own gate to the provider. Exact SDK field names are read from the
+  and tool definitions carry an input schema the provider can use to shape a call. Provider-side
+  `strict` validation is not requested: it is a beta-gated field that the non-beta Messages endpoint
+  rejects, so `src/model/tools.ts` deliberately does not send it. Host-side Zod validation is
+  therefore the sole gate on every artifact and every tool argument — which is where the gate belongs
+  regardless, because the host does not delegate its own admission decision to the provider. Exact SDK field names are read from the
   installed package types at implementation time rather than assumed.
 - **Pinned model identifier**, overridable by environment variable and recorded on every run, so the
   model is a named dimension of any reported metric.
@@ -280,7 +296,8 @@ the model for the entire run.
 host code with no model participation. Metrics per fixture: expected finding detected, expected
 invariant generated, test generated, test compiled, expected behavior exposed, plus counts of
 unsupported claims and false positives. A finding whose class is neither expected nor listed in an
-explicit `allowed_extra_classes` set counts as a false positive; a conclusion with no evidence
+explicit `allowedExtraClasses` set — the field name as implemented in `src/schemas/expected.ts` —
+counts as a false positive; a conclusion with no evidence
 references counts as an unsupported claim.
 
 **Evaluation integrity**: two host-enforced rules make the score meaningful.
@@ -338,6 +355,20 @@ builder and enabled by default. It confers read access only and cannot grant aut
 not affect F01, F03, or F04. F02's expectation MUST state whether it concerns template-level observer
 exposure or disclosure-based read delegation, so the two are not conflated. A dedicated
 disclosure-bypass fixture is a post-MVP candidate and is deliberately out of the F01–F04 scope.
+
+### Verification split between hosted CI and the local toolchain
+
+Hosted CI runs install, type-check, lint, format check, and the unit suite. It deliberately does not
+run the integration suite, because that suite invokes the real pinned `dpm` toolchain — building and
+executing Daml packages — and the runner has no Daml SDK. Installing one in CI would either pull an
+unpinned SDK, defeating the point of pinning, or add a large provisioning step to every push for a
+guarantee the local gate already provides.
+
+The consequence must be stated plainly rather than left for a reader to infer: **SC-005 is verified
+locally, not by hosted CI.** Every fixture's host-owned oracle executing on the pinned toolchain, and
+every real-toolchain claim in this plan, rests on the integration suite being run on a machine with
+Daml SDK 3.5.5 / `dpm` 1.0.21 present. A green CI badge is evidence about host logic, schemas, and
+boundaries; it is not evidence that the oracles ran.
 
 ## Complexity Tracking
 

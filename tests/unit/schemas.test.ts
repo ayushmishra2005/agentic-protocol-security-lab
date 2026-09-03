@@ -95,6 +95,35 @@ describe('invariants', () => {
     });
     assert.equal(result.success, true);
   });
+
+  it('rejects an invariant that cites no evidence', () => {
+    // Article I: an invariant is a claim about the target and must be supported.
+    // Unlike a finding, it has no unsupported state to be emitted in, so the
+    // schema refuses it rather than the report boundary weakening it.
+    const result = InvariantSchema.safeParse({
+      id: 'inv1',
+      class: 'incorrect_controller',
+      statement: 'Only the owner may exercise Transfer.',
+      evidence: [],
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects an invariants artifact carrying an unsupported invariant', () => {
+    const artifact = {
+      phase: 'invariants',
+      invariants: [
+        {
+          id: 'inv1',
+          class: 'incorrect_controller',
+          statement: 'Only the owner may exercise Transfer.',
+          evidence: [],
+        },
+      ],
+      evidence: [evidenceRef],
+    };
+    assert.equal(schemaForPhase('invariants').safeParse(artifact).success, false);
+  });
 });
 
 describe('phase artifacts validate against their own phase only', () => {
