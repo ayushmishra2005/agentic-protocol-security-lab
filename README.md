@@ -15,7 +15,14 @@ Every model interaction so far is a deterministic fake in a test, so nothing her
 model found anything: the F01 end-to-end test scripts the model's outputs and proves the machinery
 around them. A controlled live run is a separate, later step. Nothing yet supports a claim that Claude
 found F01, that a real model detected the vulnerability, or that this is an autonomous auditor or a
-production audit tool. Scoring against fixtures is also still unimplemented.
+production audit tool.
+
+The deterministic scorer now exists too, and it carries the same caveat in a stronger form. `eval`
+runs every fixture and writes a `scorecard.json` graded mechanically against host-owned expectations
+the evaluated model never sees. The only scorecard produced so far has provenance
+`harness_validation`: it was produced by a scripted fake and measures the harness, not any model. The
+scorecard schema requires that field, so the file cannot be quoted later as if it were a benchmark
+result.
 
 What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
@@ -101,9 +108,12 @@ npm install
 npm run check          # typecheck, lint, format check, unit tests
 npx tsx src/cli.ts doctor
 npx tsx src/cli.ts analyze <path-to-daml-project>   # requires ANTHROPIC_API_KEY
+npx tsx src/cli.ts eval                             # requires ANTHROPIC_API_KEY
 ```
 
-`analyze` writes `runs/<runId>/report.json` and `runs/<runId>/report.md`. The credential is read from
+`analyze` writes `runs/<runId>/report.json` and `runs/<runId>/report.md`. `eval` analyses every
+fixture through a scratch copy that withholds the expectation and the oracle, then writes
+`runs/scorecard.json`. The credential is read from
 the environment by the host only, never passed as an argument, and never written to a report, an
 evidence record, or a prompt.
 

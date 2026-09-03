@@ -222,15 +222,15 @@ before scoring depends on it.
 
 **Purpose**: Article IV. Host-owned, mechanical, unreachable from model code paths.
 
-- [ ] T079 [US2] Implement the deterministic scorer in `src/eval/scorer.ts` using mechanical class and identifier matching against `expected.json`, with no similarity scoring and no model-judged grading
-- [ ] T080 [US2] Implement metrics in `src/eval/metrics.ts`: expected finding detected, expected invariant generated, test generated, test compiled, expected behavior exposed, unsupported claim count, false positive count
-- [ ] T081 [US2] Implement the fixture runner in `src/eval/runner.ts`, copying each fixture to a scratch workspace and analyzing the copy so a run can never mutate committed fixture sources
-- [ ] T082 [US2] Enforce and test that a fixture's `expected.json` is never placed in the prompt or made readable to the model during that fixture's run, in `tests/unit/expectationIsolation.test.ts`
-- [ ] T083 [US2] Emit `scorecard.json` written exclusively by host code, recording the fixture set, toolchain version, and model identifier
-- [ ] T084 [US2] Implement the `eval` CLI command in `src/cli/eval.ts`
-- [ ] T085 [US2] Add an architectural test in `tests/unit/evalIsolation.test.ts` asserting that no model-facing code path can reach `src/eval/`, and that the model cannot produce or modify the scorecard
-- [ ] T086 [US2] Unit-test scorer determinism in `tests/unit/scorer.test.ts`: identical inputs yield identical scorecards, and unsupported claims are counted correctly
-- [ ] T087 [US2] Run full evaluation across F01–F04 and record the resulting scorecard
+- [x] T079 [US2] Implement the deterministic scorer in `src/eval/scorer.ts` using mechanical class and identifier matching against `expected.json`, with no similarity scoring and no model-judged grading
+- [x] T080 [US2] Implement metrics in `src/eval/metrics.ts`: expected finding detected, expected invariant generated, test generated, test compiled, expected behavior exposed, unsupported claim count, false positive count
+- [x] T081 [US2] Implement the fixture runner in `src/eval/runner.ts`, copying each fixture to a scratch workspace and analyzing the copy so a run can never mutate committed fixture sources
+- [x] T082 [US2] Enforce and test that a fixture's `expected.json` is never placed in the prompt or made readable to the model during that fixture's run, in `tests/unit/expectationIsolation.test.ts`
+- [x] T083 [US2] Emit `scorecard.json` written exclusively by host code, recording the fixture set, toolchain version, and model identifier
+- [x] T084 [US2] Implement the `eval` CLI command in `src/cli/eval.ts`
+- [x] T085 [US2] Add an architectural test in `tests/unit/evalIsolation.test.ts` asserting that no model-facing code path can reach `src/eval/`, and that the model cannot produce or modify the scorecard
+- [x] T086 [US2] Unit-test scorer determinism in `tests/unit/scorer.test.ts`: identical inputs yield identical scorecards, and unsupported claims are counted correctly
+- [x] T087 [US2] Run full evaluation across F01–F04 and record the resulting scorecard
 
 **Checkpoint**: User Story 2 is complete. Results are measurable and host-owned.
 

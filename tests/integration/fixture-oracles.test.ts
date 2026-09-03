@@ -20,7 +20,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
 
-import { HOST_ONLY_FIXTURE_ENTRIES, materializeTargetView } from '../../src/eval/analysisView.js';
+import { materializeTargetView } from '../../src/agent/targetView.js';
+import { HOST_ONLY_FIXTURE_ENTRIES } from '../../src/eval/analysisView.js';
 import { ExpectedSchema } from '../../src/schemas/expected.js';
 import { createWorkspace } from '../../src/security/paths.js';
 import { damlBuild } from '../../src/tools/daml/build.js';

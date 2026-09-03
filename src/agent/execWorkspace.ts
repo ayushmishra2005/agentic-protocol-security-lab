@@ -30,7 +30,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { materializeTargetView } from '../eval/analysisView.js';
+import { materializeTargetView } from './targetView.js';
 import { createWorkspace, type Workspace } from '../security/paths.js';
 
 export class ExecutionWorkspaceError extends Error {

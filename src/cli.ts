@@ -13,6 +13,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 
 import { analyze } from './cli/analyze.js';
+import { DEFAULT_FIXTURE_IDS, evaluate } from './cli/eval.js';
 import { resolveDpmExecutable, resolveGitExecutable, resolveModelId } from './config.js';
 import { assertPinnedToolchain } from './tools/daml/version.js';
 import { assertNoNetworkCapableTools, TOOL_NAMES } from './tools/registry.js';
@@ -63,6 +64,35 @@ async function runAnalyze(targetPath: string): Promise<void> {
   );
 }
 
+async function runEval(): Promise<void> {
+  const { scorecard, scorecardPath } = await evaluate({
+    fixturesRoot: path.join(process.cwd(), 'fixtures'),
+    runsRoot: runsRoot(),
+    outputRoot: runsRoot(),
+  });
+
+  const lines = scorecard.results.map((fixture) => {
+    const passes = fixture.dimensions.filter((entry) => entry.status === 'pass').length;
+    const scored = fixture.dimensions.filter((entry) => entry.status !== 'not_applicable').length;
+    return `${fixture.fixtureId.padEnd(26)}${String(passes)}/${String(scored)} dimensions`;
+  });
+
+  process.stdout.write(
+    [
+      `model               ${scorecard.model.id}`,
+      `provenance          ${scorecard.provenance}`,
+      `fixtures            ${String(scorecard.aggregate.fixtures)}`,
+      ...lines,
+      `unsupported claims  ${String(scorecard.aggregate.unsupportedClaims)}`,
+      `false positives     ${String(scorecard.aggregate.falsePositives)}`,
+      `scorecard.json      ${scorecardPath}`,
+      '',
+      scorecard.note,
+      '',
+    ].join('\n'),
+  );
+}
+
 const program = new Command();
 
 program
@@ -92,6 +122,20 @@ program
     } catch (error) {
       // Setup failures reach here. An analysis that fell short does not: it
       // produced a report, and the report says what fell short.
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('eval')
+  .description(
+    `Analyse the fixture set (${DEFAULT_FIXTURE_IDS.join(', ')}) and write a host-owned scorecard`,
+  )
+  .action(async () => {
+    try {
+      await runEval();
+    } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
       process.exitCode = 1;
     }
