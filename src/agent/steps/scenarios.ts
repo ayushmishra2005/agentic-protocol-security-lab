@@ -63,8 +63,11 @@ export const scenariosPhase: PhaseDefinition<'scenarios'> = {
     'knows what the test is for.',
   ].join('\n'),
   acceptance: [
-    'scenarios: each with an id, the invariantId it targets, and a description containing the ' +
-      'parties, the setup, the attempted operation, and the expected ledger response.',
+    'scenarios: each with an id, the invariantId it targets, a title, a severity, and a description ' +
+      'containing the parties, the setup, the attempted operation, and the expected ledger response.',
+    'title is one line naming the misuse, phrased as an attempt rather than an outcome. severity is ' +
+      'info, low, medium or high, and states how serious this would be if the attempt worked. Both ' +
+      'are judgements about the scenario, decided now; neither asserts that anything has happened.',
     'invariantId must be the id of an invariant from the validated invariants artifact. Do not ' +
       'invent one.',
     'evidence: identifiers for the tool calls behind the source details the scenario depends on.',

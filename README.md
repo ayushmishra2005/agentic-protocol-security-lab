@@ -4,13 +4,20 @@ AI-native, spec-driven protocol security agent that turns code changes into thre
 invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
 adapter: Daml/Canton.
 
-## Status: generated tests execute for real — no reporting or evaluation yet
+## Status: the end-to-end pipeline runs — no real-model result yet
 
-Generated Daml security tests now compile and run on the pinned toolchain inside an isolated run
-workspace, with bounded host-controlled revision when a test fails to compile or produces a result
-that contradicts the expectation it declared beforehand. Nothing here produces a report, scores a
-run, or has made a live provider request; every model interaction so far is a deterministic fake in a
-test. What exists today is the governance and
+`analyze <path>` now runs the whole loop: six validated analysis phases, generated adversarial Daml
+Scripts, real compilation and execution on the pinned toolchain, bounded host-controlled revision,
+and an evidence-backed report written as `report.json` with `report.md` rendered from it.
+
+**This is the implemented pipeline, not a benchmark result.** No live provider request has been made.
+Every model interaction so far is a deterministic fake in a test, so nothing here shows that a real
+model found anything: the F01 end-to-end test scripts the model's outputs and proves the machinery
+around them. A controlled live run is a separate, later step. Nothing yet supports a claim that Claude
+found F01, that a real model detected the vulnerability, or that this is an autonomous auditor or a
+production audit tool. Scoring against fixtures is also still unimplemented.
+
+What exists today is the governance and
 specification layer, the host-side security boundary that must be in place before a model is ever
 allowed into the runtime, and the first vulnerable fixture with a host-owned, independently reviewed
 oracle proving the defect on the real toolchain:
@@ -59,13 +66,34 @@ revisions; the model cannot choose to revise, cannot raise the budget, and canno
 expectation after seeing the result. A conclusion whose supporting test never compiled and ran to its
 own prediction cannot reach confirmed state, whatever the model asserts about it.
 
+The report is assembled by the host, not written by the model. The model is never asked to summarise,
+to state a finding's status, or to describe what the run established; the builder maps validated
+scenarios and invariants onto findings, keeps a finding confirmed only when its evidence resolves in
+the store and its supporting Script compiled, ran and matched its pre-declared expectation, and
+downgrades everything else while keeping it visible. `report.json` is the single source of truth and
+`report.md` is a pure function of it, so the document cannot contain a claim the structured record
+does not. Both carry the same prototype boundary statement and the same explicit scope limits, read
+from the JSON rather than pasted into the renderer. A generated Script that passes is
+execution-backed evidence that a scenario was exercised — not a proof that the package is secure, and
+not an audit.
+
+The deterministic F01 end-to-end tests run against the real Daml 3.5.5 toolchain with a fake model
+client and no credential. Analysing an ordinary project hides nothing; withholding a benchmark
+fixture's own expectation and oracle is requested explicitly by the caller that evaluates it, not
+implied by any filename.
+
 Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
 
 ```bash
 npm install
 npm run check          # typecheck, lint, format check, unit tests
 npx tsx src/cli.ts doctor
+npx tsx src/cli.ts analyze <path-to-daml-project>   # requires ANTHROPIC_API_KEY
 ```
+
+`analyze` writes `runs/<runId>/report.json` and `runs/<runId>/report.md`. The credential is read from
+the environment by the host only, never passed as an argument, and never written to a report, an
+evidence record, or a prompt.
 
 ## The intended idea
 

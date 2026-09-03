@@ -7,7 +7,12 @@ import {
   InvariantSchema,
 } from '../../src/schemas/findings.js';
 import { PhaseArtifactSchema, schemaForPhase } from '../../src/schemas/phases.js';
-import { BOUNDARY_STATEMENT, ReportSchema } from '../../src/schemas/report.js';
+import {
+  BOUNDARY_STATEMENT,
+  ReportSchema,
+  SCOPE_LIMITATIONS,
+  VERIFICATION_NOTE,
+} from '../../src/schemas/report.js';
 import { ExpectedSchema } from '../../src/schemas/expected.js';
 
 const evidenceRef = { evidenceId: 'ev_0123456789abcdef' };
@@ -139,13 +144,16 @@ describe('report', () => {
       outputTokens: 20,
       cacheCreationInputTokens: 0,
       cacheReadInputTokens: 0,
+      modelCalls: 2,
       toolInvocations: 3,
+      toolInvocationsRefused: 0,
     },
     findings: [],
     invariants: [],
     generatedTests: [],
     degradedPhases: [],
     summary: 'Summary.',
+    verification: { note: VERIFICATION_NOTE, scopeLimitations: [...SCOPE_LIMITATIONS] },
     boundaryStatement: BOUNDARY_STATEMENT,
   };
 

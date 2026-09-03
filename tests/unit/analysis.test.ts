@@ -174,6 +174,8 @@ function artifactFor(phase: ModelPhase, evidence: readonly string[]): unknown {
           {
             id: 'S1',
             invariantId: 'INV1',
+            title: 'Issuer attempts Release without the holder',
+            severity: 'high',
             description:
               'Allocate issuer and holder, create Holding, then have issuer attempt Release. ' +
               'If the invariant holds the ledger should reject it.',
@@ -606,6 +608,8 @@ describe('scenarios phase', () => {
           {
             id: 'S1',
             invariantId: 'INV1',
+            title: 'Issuer attempts Release without the holder',
+            severity: 'high',
             description: 'anything',
             state: 'confirmed',
           },

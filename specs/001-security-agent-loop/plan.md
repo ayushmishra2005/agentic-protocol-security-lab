@@ -193,6 +193,13 @@ budget is spent with revision still required, the run proceeds to `report` in an
 state rather than looping or presenting the last attempt as successful. `evaluate` is unreachable
 from any model-facing code path, satisfying Article IV.
 
+`report` is a host state, not a model turn. It means the host has everything it needs to assemble the
+report: validated artifacts, observed execution results, confirmation decisions, the evidence store,
+and its own run metadata. No prompt is sent in this phase, and the artifact that satisfies the
+machine's gate is a projection of the report the host just built and validated. Asking a model to
+narrate an outcome the host already established would reintroduce, at the final step, exactly the
+unchecked assertion the rest of the pipeline exists to prevent.
+
 **Tool library** (deterministic host functions; the model supplies validated parameters only):
 
 | Group | Purpose | Backing |

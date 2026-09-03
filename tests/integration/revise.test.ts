@@ -26,6 +26,7 @@ import { runTestCycle, type TestCycleResult } from '../../src/agent/steps/testCy
 import type { ValidatedArtifact } from '../../src/agent/steps/runPhase.js';
 import { WriteBoundary } from '../../src/agent/writeBoundary.js';
 import { EvidenceStore } from '../../src/evidence/store.js';
+import { HOST_ONLY_FIXTURE_ENTRIES } from '../../src/eval/analysisView.js';
 import { createWorkspace } from '../../src/security/paths.js';
 import type { ToolContext } from '../../src/tools/dispatch.js';
 import { ScriptedClient, promptText, textBlock } from '../helpers/fakeModel.js';
@@ -83,6 +84,9 @@ function testArtifact(source: string, phase: 'generate_tests' | 'revise'): strin
     property: 'Only the current owner may transfer ownership away from themselves.',
     // Declared before anything runs, and not restated afterwards.
     expectedOutcome: 'script_passes',
+    // If the Script completes, the custodian moved ownership without the
+    // owner submitting, which is the invariant failing.
+    violationIndicatedBy: 'script_passes',
     expectedBehavior:
       'The custodian submits Transfer. If the declared controller is the custodian, the ' +
       'submission is accepted and the Script completes.',
@@ -146,6 +150,8 @@ const PRIOR_ARTIFACTS: readonly ValidatedArtifact[] = [
         {
           id: 'sc-1',
           invariantId: 'inv-1',
+          title: 'Custodian can transfer ownership without the owner',
+          severity: 'high',
           description:
             'The custodian exercises Transfer to reassign ownership without the owner submitting.',
         },
@@ -198,9 +204,10 @@ before(async () => {
   const execWorkspace = createExecutionWorkspace({
     sourceRoot: FIXTURE,
     destination: execRoot,
-    // The multi-package manifest names the oracle package, which is host-only.
-    // Carrying it would both disclose the oracle and break the build.
-    additionalHostOnly: ['multi-package.yaml'],
+    // Benchmark isolation: the expectation and the oracle package are withheld,
+    // and the copied multi-package manifest is rewritten to name only what the
+    // view contains.
+    hostOnlyEntries: HOST_ONLY_FIXTURE_ENTRIES,
   });
 
   const boundary = new WriteBoundary({

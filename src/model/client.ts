@@ -88,6 +88,15 @@ export interface ModelResponse {
  * provider, and a generic layer would be untested surface area.
  */
 export interface ModelClient {
+  /**
+   * The identifier the report records for this run.
+   *
+   * Part of the interface so the report takes the model's identity from the
+   * client that actually made the calls, rather than from configuration that
+   * may have been read at a different moment. A fake declares a fake identifier,
+   * and a report produced by a fake therefore says so.
+   */
+  readonly modelId: string;
   createMessage(request: ModelRequest): Promise<ModelResponse>;
 }
 

@@ -189,14 +189,16 @@ and results feed back.
 
 **Purpose**: Article I's output contract.
 
-- [ ] T067 [US1] Implement `report` phase assembly in `src/report/build.ts`, producing schema-valid `report.json`
-- [ ] T068 [US1] Implement Markdown rendering in `src/report/render.ts`, deriving `report.md` solely from `report.json` and introducing no claims absent from it
-- [ ] T069 [US1] Include the run's toolchain version, model identifier, token usage, and tool invocation counts in the report
-- [ ] T070 [US1] Include the explicit "AI review and research prototype, not a formal security audit" boundary statement in both outputs
-- [ ] T071 [US1] Implement the `analyze <path>` CLI command in `src/cli/analyze.ts`
-- [ ] T072 [US1] Test in `tests/unit/report.test.ts` that a confirmed finding lacking resolvable evidence cannot be emitted, and that Markdown introduces no claim absent from the JSON
+- [X] T067 [US1] Implement `report` phase assembly in `src/report/build.ts`, producing schema-valid `report.json`
+- [X] T068 [US1] Implement Markdown rendering in `src/report/render.ts`, deriving `report.md` solely from `report.json` and introducing no claims absent from it
+- [X] T069 [US1] Include the run's toolchain version, model identifier, token usage, and tool invocation counts in the report
+- [X] T070 [US1] Include the explicit "AI review and research prototype, not a formal security audit" boundary statement in both outputs
+- [X] T071 [US1] Implement the `analyze <path>` CLI command in `src/cli/analyze.ts`
+- [X] T072 [US1] Test in `tests/unit/report.test.ts` that a confirmed finding lacking resolvable evidence cannot be emitted, and that Markdown introduces no claim absent from the JSON
 
-**Checkpoint**: User Story 1 is complete and independently demonstrable on F01.
+**Checkpoint**: User Story 1 is complete and independently demonstrable on F01. Proven by
+`tests/integration/analyze.test.ts`, which runs the whole pipeline over the F01 fixture with a fake
+model client and the real pinned toolchain. That test is additional to the numbered tasks.
 
 ---
 

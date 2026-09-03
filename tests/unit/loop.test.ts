@@ -47,6 +47,7 @@ import { MODEL_PHASE_SEQUENCE } from '../../src/schemas/phases.js';
 import { createWorkspace } from '../../src/security/paths.js';
 import type { ToolContext } from '../../src/tools/dispatch.js';
 import { TOOL_NAMES } from '../../src/tools/registry.js';
+import { FAKE_MODEL_ID } from '../helpers/fakeModel.js';
 
 const FAKE_KEY = 'sk-ant-TEST_SECRET_DO_NOT_PERSIST-not-a-real-key';
 
@@ -92,6 +93,7 @@ interface FakeTurn {
 }
 
 class FakeModelClient implements ModelClient {
+  readonly modelId = FAKE_MODEL_ID;
   calls = 0;
   lastRequest?: ModelRequest;
   readonly seenRequests: ModelRequest[] = [];

@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 
-import { EvidenceRefSchema, FindingSchema, InvariantSchema } from './findings.js';
+import { EvidenceRefSchema, FindingSchema, InvariantSchema, SeveritySchema } from './findings.js';
 
 /** Model-facing phases, in the only order the host will run them. */
 export const MODEL_PHASE_SEQUENCE = [
@@ -101,6 +101,17 @@ export const ScenariosArtifactSchema = z.strictObject({
       z.strictObject({
         id: z.string().min(1).max(64),
         invariantId: z.string().min(1).max(64),
+        /**
+         * Short statement of the misuse, and how bad it would be if it worked.
+         *
+         * These exist so the report builder can turn a scenario the execution
+         * evidence supported into a finding by copying fields, rather than by
+         * doing security reasoning of its own at assembly time. They are
+         * analytical judgements, which is why they are declared here — before
+         * anything ran — rather than chosen once the result is known.
+         */
+        title: z.string().min(1).max(200),
+        severity: SeveritySchema,
         description: z.string().min(1).max(2_000),
       }),
     )
@@ -140,6 +151,20 @@ export const GeneratedTestSchema = z.strictObject({
   /** The invariant or property this Script is trying to violate. */
   property: z.string().min(1).max(1_000),
   expectedOutcome: ExpectedRunOutcomeSchema,
+  /**
+   * Which observable result would mean the invariant does NOT hold.
+   *
+   * Distinct from `expectedOutcome`, which is a prediction. This is the
+   * script's security meaning, and the two are independent: a test that asserts
+   * a submission is rejected predicts `script_passes` and indicates a violation
+   * on `script_fails`, while a test that drives the misuse directly predicts and
+   * indicates a violation on the same outcome.
+   *
+   * Declared before execution for the same reason the prediction is: it lets
+   * the host decide what the result meant by comparing two values it already
+   * held, instead of asking anyone to interpret the outcome afterwards.
+   */
+  violationIndicatedBy: ExpectedRunOutcomeSchema,
   /** Ledger-level statement of what should happen, for the report. */
   expectedBehavior: z.string().min(1).max(1_000),
   ...withEvidence,

@@ -41,7 +41,14 @@ export function promptText(request: { system?: string; messages: unknown }): str
   return `${request.system ?? ''}\n${JSON.stringify(request.messages)}`;
 }
 
+/**
+ * Identifier every fake client reports. Deliberately not a real model name, so
+ * a report produced in a test cannot be mistaken for one produced by a model.
+ */
+export const FAKE_MODEL_ID = 'fake-model-for-tests';
+
 export class ScriptedClient implements ModelClient {
+  readonly modelId = FAKE_MODEL_ID;
   calls = 0;
   /**
    * Prompts are snapshotted as text at call time. The loop grows one message

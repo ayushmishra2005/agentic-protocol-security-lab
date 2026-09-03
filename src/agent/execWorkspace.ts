@@ -9,11 +9,11 @@
  * run cannot leave a `.daml` build tree or a modified source file behind in the
  * repository.
  *
- * The copy is made by `createAnalysisView`, which is also what excludes
- * host-owned benchmark material. That reuse is deliberate: the execution
- * workspace and the model's view of the target are then the same set of files
- * by construction, so a generated test cannot compile against an oracle the
- * analysis was never allowed to read.
+ * The copy is made by the same function that builds the model's view of the
+ * target, so the two are the same set of files by construction and a generated
+ * test cannot compile against an oracle the analysis was never allowed to read.
+ * Which files are withheld is the caller's decision: nothing for an ordinary
+ * user project, the expectation and the oracle for a benchmark fixture.
  *
  * Layout:
  *
@@ -30,7 +30,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { createAnalysisView } from '../eval/analysisView.js';
+import { materializeTargetView } from '../eval/analysisView.js';
 import { createWorkspace, type Workspace } from '../security/paths.js';
 
 export class ExecutionWorkspaceError extends Error {
@@ -63,7 +63,15 @@ export interface CreateExecutionWorkspaceOptions {
    * Auto-detected from `daml.yaml` when omitted.
    */
   readonly targetPackageRoot?: string;
-  readonly additionalHostOnly?: readonly string[];
+  /**
+   * Root-relative entries to withhold from the copy.
+   *
+   * Empty by default, which is the generic `analyze <path>` case: a user's own
+   * project is copied whole, and no filename is treated as inherently secret.
+   * Benchmark callers pass `HOST_ONLY_FIXTURE_ENTRIES` to withhold the
+   * expectation and the oracle.
+   */
+  readonly hostOnlyEntries?: readonly string[];
 }
 
 /** Find the package to build: the root itself, or its first `daml.yaml` child. */
@@ -103,12 +111,10 @@ export function createExecutionWorkspace(
   fs.mkdirSync(targetRoot, { recursive: true });
   fs.mkdirSync(generatedSourceRoot, { recursive: true });
 
-  const view = createAnalysisView({
-    fixtureRoot: options.sourceRoot,
+  const view = materializeTargetView({
+    sourceRoot: options.sourceRoot,
     destination: targetRoot,
-    ...(options.additionalHostOnly === undefined
-      ? {}
-      : { additionalHostOnly: options.additionalHostOnly }),
+    ...(options.hostOnlyEntries === undefined ? {} : { hostOnlyEntries: options.hostOnlyEntries }),
   });
 
   const detected = options.targetPackageRoot ?? detectPackageRoot(targetRoot);

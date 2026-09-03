@@ -59,13 +59,17 @@ export const generateTestsPhase: PhaseDefinition<'generate_tests'> = {
   ].join('\n'),
   acceptance: [
     'tests: one entry per scenario you are testing, each with id, scenarioId, scriptName, ' +
-      'entryPoint, source, property, expectedOutcome and expectedBehavior.',
+      'entryPoint, source, property, expectedOutcome, violationIndicatedBy and expectedBehavior.',
     'scriptName is the module name declared at the top of source. entryPoint is the Script binding ' +
       'inside it that should run. They must match the source exactly, or the host cannot run it.',
     'expectedOutcome is what you predict the test run will report: script_passes if the Script ' +
       'completes without an assertion failing, script_fails if you expect it to fail. Decide this ' +
       'now, on the evidence you have. The host compares the real result against it, and a ' +
       'mismatch means the analysis was wrong about the target, which is a useful thing to learn.',
+    'violationIndicatedBy is a different question: which of the two outcomes, if observed, would ' +
+      'mean the invariant does not hold. A Script that drives the misuse directly indicates a ' +
+      'violation on script_passes; a Script that asserts the ledger rejects the misuse indicates ' +
+      'one on script_fails. Say what the result would mean before you know it.',
     'expectedBehavior states the same prediction at the ledger level: which submission is accepted ' +
       'or rejected, and with what kind of error.',
     'evidence: identifiers for the source you relied on when writing the Script.',
