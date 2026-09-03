@@ -23,14 +23,18 @@
  *     are `number | null`, not optional numbers.
  *   - `StopReason` includes `refusal`, `pause_turn` and
  *     `model_context_window_exceeded` alongside the familiar values.
- *   - Strict tool schemas exist as `Tool.strict?: boolean`, documented as
- *     "guarantees schema validation on tool names and inputs".
+ *   - Strict tool schemas exist as `Tool.strict?: boolean`, but they are part of
+ *     the structured-outputs capability: `ModelInfo.structured_outputs` covers
+ *     "structured output / JSON mode / strict tool schemas", and the matching
+ *     beta is `structured-outputs-2025-11-13`. Sending `strict` on the
+ *     non-beta endpoint is rejected, so it is not sent.
  *   - Structured output is `output_config.format`, a `JSONOutputFormat` with
  *     `{ type: 'json_schema', schema }`. It is not requested here: host-side Zod
  *     validation is the authoritative gate, and a provider-side guarantee must
  *     not become a reason to trust an artifact the host has not checked.
- *   - `ClientOptions.apiKey` accepts `ApiKeySetter = () => Promise<string>`, so
- *     the credential is supplied as a lazy accessor and never as a loose string.
+ *   - `ClientOptions.apiKey` is typed `string | ApiKeySetter`, but the
+ *     constructor keeps it only when it is a string and silently drops the
+ *     accessor form, so the credential must be supplied as a string.
  */
 import Anthropic from '@anthropic-ai/sdk';
 import type { Message, MessageParam, Tool, ToolUnion } from '@anthropic-ai/sdk/resources/messages';

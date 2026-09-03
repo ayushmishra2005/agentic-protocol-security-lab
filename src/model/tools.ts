@@ -32,16 +32,18 @@ const MAX_TOOL_RESULT_CHARS = 24_000;
  *
  * The JSON Schema is generated from the same Zod schema the host validates
  * against, so the contract shown to the model and the contract enforced by the
- * host cannot drift apart. `strict: true` asks the provider to validate names
- * and inputs as well; that is a convenience, not the gate, because host-side
- * validation runs regardless.
+ * host cannot drift apart.
+ *
+ * `strict` is deliberately not sent. It belongs to the structured-outputs
+ * capability, which the non-beta Messages endpoint rejects, and asking for it
+ * bought nothing anyway: host-side Zod validation is the gate, and it runs on
+ * every tool call whether or not the provider also checked the shape.
  */
 export function buildProviderTools(): Tool[] {
   return TOOL_REGISTRY.map((descriptor) => ({
     name: descriptor.name,
     description: descriptor.description,
     input_schema: z.toJSONSchema(descriptor.parameters) as Tool.InputSchema,
-    strict: true,
     type: 'custom' as const,
   }));
 }

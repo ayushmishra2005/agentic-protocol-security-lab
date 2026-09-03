@@ -283,6 +283,85 @@ describe('provider credential reaches the transport', () => {
   });
 });
 
+describe('outgoing request body', () => {
+  it('sends exactly the fields this endpoint accepts', async () => {
+    // A 400 from the live API is expensive to diagnose: the response body is
+    // deliberately not retained, so the wire shape has to be pinned here
+    // instead. This captures the exact JSON the SDK puts on the wire.
+    const original = globalThis.fetch;
+    const originalBaseUrl = process.env['ANTHROPIC_BASE_URL'];
+    process.env['ANTHROPIC_BASE_URL'] = 'http://127.0.0.1:1';
+
+    let captured: Record<string, unknown> = {};
+
+    globalThis.fetch = (_input: unknown, init?: RequestInit): Promise<Response> => {
+      // The SDK serialises the body to a JSON string before calling fetch.
+      const body = init?.body;
+      assert.equal(typeof body, 'string');
+      captured = JSON.parse(body as string) as Record<string, unknown>;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'msg_shape',
+            type: 'message',
+            role: 'assistant',
+            model: 'test-model',
+            content: [{ type: 'text', text: 'ok' }],
+            stop_reason: 'end_turn',
+            stop_sequence: null,
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    };
+
+    try {
+      const client = new AnthropicModelClient({
+        credential: new ProviderCredential(FAKE_KEY),
+        modelId: 'test-model',
+        maxRetries: 0,
+        sleep: () => Promise.resolve(),
+      });
+
+      await client.createMessage({
+        system: 'system',
+        messages: [{ role: 'user', content: 'hello' }],
+        tools: buildProviderTools(),
+      });
+    } finally {
+      globalThis.fetch = original;
+      if (originalBaseUrl === undefined) delete process.env['ANTHROPIC_BASE_URL'];
+      else process.env['ANTHROPIC_BASE_URL'] = originalBaseUrl;
+    }
+
+    // Nothing beyond these five keys. A field the endpoint does not accept —
+    // `output_config`, `thinking`, `tool_choice`, `betas` — is a 400, and the
+    // failure would appear only against the live API.
+    assert.deepEqual(Object.keys(captured).sort(), [
+      'max_tokens',
+      'messages',
+      'model',
+      'system',
+      'tools',
+    ]);
+
+    assert.equal(captured['model'], 'test-model');
+    assert.equal(captured['max_tokens'], MODEL_LOOP_DEFAULTS.maxOutputTokens);
+    assert.equal(captured['system'], 'system');
+    assert.deepEqual(captured['messages'], [{ role: 'user', content: 'hello' }]);
+
+    const tools = captured['tools'] as Record<string, unknown>[];
+    assert.equal(tools.length, TOOL_NAMES.length);
+    for (const tool of tools) {
+      assert.deepEqual(Object.keys(tool).sort(), ['description', 'input_schema', 'name', 'type']);
+      assert.equal(tool['type'], 'custom');
+      assert.equal(Object.hasOwn(tool, 'strict'), false);
+      assert.equal((tool['input_schema'] as Record<string, unknown>)['type'], 'object');
+    }
+  });
+});
+
 describe('provider failure diagnostics', () => {
   it('retains the HTTP status, request id and provider error type', () => {
     const detail = providerErrorDetail(sdkError(401, 'authentication_error', 'req_abc123'));
@@ -368,7 +447,9 @@ describe('provider tool descriptors', () => {
   it('describes tools with a JSON Schema and never with a command', () => {
     for (const tool of buildProviderTools()) {
       assert.equal(tool.input_schema.type, 'object');
-      assert.equal(tool.strict, true);
+      // `strict` belongs to the structured-outputs beta and is rejected by the
+      // non-beta endpoint, so it must not appear.
+      assert.equal(Object.hasOwn(tool, 'strict'), false);
       assert.equal(tool.type, 'custom');
       const serialised = JSON.stringify(tool);
       for (const forbidden of ['argv', 'executable', 'command', 'shell', '/usr/bin', 'dpm ']) {
