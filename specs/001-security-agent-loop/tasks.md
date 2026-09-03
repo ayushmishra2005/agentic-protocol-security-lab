@@ -254,9 +254,9 @@ before scoring depends on it.
 
 **Purpose**: Close drift between specification and implementation.
 
-- [ ] T093 Run `/speckit-analyze` to detect inconsistencies across constitution, spec, plan, and tasks
-- [ ] T094 Run `/speckit-converge` and record any residual drift as explicit follow-up tasks rather than leaving it implicit
-- [ ] T095 Re-verify the Constitution Check in `plan.md` against the delivered implementation and update it if design shifted
+- [x] T093 Run `/speckit-analyze` to detect inconsistencies across constitution, spec, plan, and tasks — nine findings, one CRITICAL (Article I invariant evidence), no other constitution conflict; carried into Phase 16
+- [x] T094 Run `/speckit-converge` and record any residual drift as explicit follow-up tasks rather than leaving it implicit — appended as Phase 16, T098–T105
+- [x] T095 Re-verify the Constitution Check in `plan.md` against the delivered implementation and update it if design shifted — re-verification table added; design unshifted, one open item recorded as T098
 
 ---
 
@@ -341,3 +341,25 @@ started before Phase 13 is complete.
 - MCP is a stretch goal only and must never block the scored MVP.
 - No task in this list authorizes committing, pushing, or branching; version-control actions remain a
   human decision.
+
+---
+
+## Phase 16: Convergence
+
+**Purpose**: Residual drift between the delivered implementation and the governing artifacts,
+recorded as explicit tasks rather than left implicit (Article: Development Workflow). Produced by the
+Phase 14 analysis and convergence pass over the constitution, `spec.md`, `plan.md`, `tasks.md`, and
+the code as delivered through Phase 13. No code, spec, or plan text was changed by that pass; these
+tasks carry the work.
+
+- [ ] T098 Close the Article I gap for invariants: the constitution requires every finding **and every invariant** to carry at least one resolvable evidence reference, but `InvariantSchema` in `src/schemas/findings.ts` and the phase artifact schemas in `src/schemas/phases.ts` accept an empty `evidence` array, and no host gate or scorer dimension counts a zero-evidence invariant. Either require at least one reference at the report boundary or count such invariants as unsupported claims in `src/eval/metrics.ts`, and test the chosen rule. Note that `isUnsupportedClaim` in `src/schemas/findings.ts` is currently exported and never called
+- [ ] T099 Correct the model-runtime description in `plan.md`: it states that "tool definitions use strict schema validation", but provider-side `strict` is a beta-gated field that the non-beta Messages endpoint rejects, so `src/model/tools.ts` deliberately does not send it. Host-side Zod validation is the sole artifact gate, which is what the surrounding paragraph already argues for; the sentence should say so rather than describe a control that is not in force
+- [ ] T100 Record the controlled live-model run as explicit scoped work. SC-001 through SC-004 and SC-008 describe per-fixture results carrying a model identifier, and no task in this list covers obtaining them with a real provider. Until such a run exists, every published scorecard carries `harness_validation` provenance and no benchmark claim may be made; the task list should say that instead of leaving the gap implicit
+- [ ] T101 Reconcile the expectation-field naming: `plan.md` and T017 name an `allowed_extra_classes` set, while the implemented schema field in `src/schemas/expected.ts` is `allowedExtraClasses`. Pick the implemented name in the prose so a reviewer grepping either artifact finds the other
+- [ ] T102 Reconcile the phase count in `plan.md`: Scale/Scope says "ten model-facing phases", while the same document states that `report` is a host state that sends no prompt, and the implementation agrees — `MODEL_PHASE_SEQUENCE` has ten members but the last is host-assembled. State the model-facing count and the host states separately
+- [ ] T103 Update the Project Structure tree in `plan.md` for what Phases 12 and 13 delivered: `scripts/` holding the example-capture tool, and the fact that the generic target-view copier lives in `src/agent/targetView.ts` while `src/eval/analysisView.ts` keeps only benchmark policy — which is what allows the architectural test to assert that no model-facing module imports `src/eval/`
+- [ ] T104 Record in `plan.md` why the real-toolchain integration suite is not part of hosted CI, so a reader can tell whether SC-005 is verified there or only locally. The workflow runs install, typecheck, lint, format check, and unit tests by design
+- [ ] T105 Refresh the stale metadata in the governing documents: `spec.md` is still marked **Status: Draft** although the MVP is delivered through Phase 13, and the Notes block in this file still reads "Completed: T001–T004" and states a task count that predates Phases 12–14
+
+**Checkpoint**: Specification, plan, and implementation agree, or every remaining disagreement is a
+numbered task above.

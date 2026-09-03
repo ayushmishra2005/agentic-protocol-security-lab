@@ -101,6 +101,33 @@ the scorer and tool wrappers consume structured XML and JSON, never scraped huma
 
 No violations. Complexity Tracking is therefore empty.
 
+### Post-implementation re-verification (2026-09-03)
+
+Re-evaluated against the delivered implementation through Phase 13, as the constitution's quality
+gates require the check to be re-run after design rather than taken on its pre-design word. The
+design did not shift; what changed is that each gate now has something executable behind it.
+
+| Article | Delivered evidence | Status |
+|---|---|---|
+| I. Tools before prose | `ConfirmedFindingSchema` requires at least one evidence reference; `renderReport` is a pure function of `report.json`, asserted by test; the confirmation gate refuses to promote a finding whose supporting Script never compiled and ran to its own prediction | PASS, one open item |
+| II. Allowlisted execution | `src/security/exec.ts` spawns a pinned absolute executable with an argv allowlist and no shell; `src/security/paths.ts` resolves symlinks before use; both are negatively tested for traversal, unlisted flags, and shell metacharacters | PASS |
+| III. Tests authoritative | Generated Scripts are compiled and run by the pinned toolchain; outcomes are sorted into four host-kept-apart states, and only execution matching a pre-declared expectation supports confirmation | PASS |
+| IV. Host-owned eval | The scorer is mechanical class and identifier matching; `tests/unit/evalIsolation.test.ts` asserts over the import graph that no model-facing module reaches `src/eval/`, and that the tool surface exposes nothing that could write a scorecard | PASS |
+| V. Untrusted inputs | Target text is fenced as untrusted and kept out of any cached prefix; every registered tool declares `networkCapable: false` and it is asserted at runtime; redaction runs before capture is persisted | PASS |
+| VI. Adapter honesty | Boundary statement and scope limits are literals in the report schema, so they cannot be omitted; every report and scorecard names the toolchain and the model identifier, and the scorecard's required `provenance` field distinguishes a harness run from a model run | PASS |
+| VII. Simplicity | One process, one phase machine, one adapter. No prohibited technology was introduced | PASS |
+| VIII. Skills to authoritative sources | The provider surface was read from the installed SDK types rather than from memory, which is how the unsupported `strict` tool field was found | PASS |
+| IX. Integration-first | Four fixtures, each with a host-owned, independently reviewed oracle executed on the pinned toolchain and withheld from the evaluated model | PASS |
+
+**Open item against Article I**: the article requires every finding *and every invariant* to carry a
+resolvable evidence reference. Confirmed findings are structurally gated; invariants are not, and no
+scorer dimension counts a zero-evidence invariant. Recorded as T098 rather than silently narrowed.
+
+**Not yet demonstrated**: every model interaction so far has been a scripted stand-in. The gates above
+are properties of the host, and the host is what they claim. No statement about model performance is
+supported by anything in this repository, and the published scorecard says `harness_validation` for
+that reason.
+
 **Explicitly not introduced**: LangChain, LangGraph, CrewAI, AutoGen, any database, any frontend,
 RAG, any vector database, cloud deployment, Kubernetes, arbitrary Bash, the provider's
 code-execution tool, and the provider's web-search or web-fetch tools.
