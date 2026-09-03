@@ -1,33 +1,169 @@
 # agentic-protocol-security-lab
 
-AI-native, spec-driven protocol security agent that turns code changes into threat models, security
-invariants, adversarial tests, tool-backed verification, and reproducible eval results. First
-adapter: Daml/Canton.
+An AI-native, spec-driven security agent for Daml/Canton protocol code. Given a Daml project, it
+derives a threat model and authorization invariants, writes adversarial Daml Scripts, compiles and
+runs them on a pinned toolchain, revises when the results contradict its expectations, and produces a
+report in which every confirmed conclusion points at a recorded tool invocation.
 
-## Status: the end-to-end pipeline runs — no real-model result yet
+The point is that conclusions are traceable to executed tooling rather than to model narrative. If
+the demonstration were `prompt → Markdown report`, it would have failed its own definition.
 
-`analyze <path>` now runs the whole loop: six validated analysis phases, generated adversarial Daml
-Scripts, real compilation and execution on the pinned toolchain, bounded host-controlled revision,
-and an evidence-backed report written as `report.json` with `report.md` rendered from it.
+## What is true today
 
-**This is the implemented pipeline, not a benchmark result.** No live provider request has been made.
-Every model interaction so far is a deterministic fake in a test, so nothing here shows that a real
-model found anything: the F01 end-to-end test scripts the model's outputs and proves the machinery
-around them. A controlled live run is a separate, later step. Nothing yet supports a claim that Claude
-found F01, that a real model detected the vulnerability, or that this is an autonomous auditor or a
-production audit tool.
+The pipeline is implemented and runs end to end. The evaluation harness is implemented and scores
+four fixtures. **No live provider request has ever been made from this repository.**
 
-The deterministic scorer now exists too, and it carries the same caveat in a stronger form. `eval`
-runs every fixture and writes a `scorecard.json` graded mechanically against host-owned expectations
-the evaluated model never sees. The only scorecard produced so far has provenance
-`harness_validation`: it was produced by a scripted fake and measures the harness, not any model. The
-scorecard schema requires that field, so the file cannot be quoted later as if it were a benchmark
-result.
+Every model interaction so far has been a deterministic script standing in for a model. Those runs
+demonstrate the machinery around the model — validated phases, real compilation, real execution,
+evidence records, host-assembled reports, mechanical scoring — and demonstrate nothing about any
+model's ability to find any vulnerability. Nothing here supports a claim that Claude found F01, that
+a real model detected a vulnerability, or that this is an autonomous auditor or a production audit
+tool.
 
-What exists today is the governance and
-specification layer, the host-side security boundary that must be in place before a model is ever
-allowed into the runtime, and four vulnerable fixtures, each with a host-owned, independently
-reviewed oracle proving the defect on the real toolchain:
+You do not have to take that on trust. [`examples/run-f01/`](examples/run-f01/) is a complete run
+checked in for reading without an API key: the report, its rendering, every tool invocation with its
+exit code, and the generated Script that was compiled and executed.
+
+## Trust model
+
+The model is a participant in the loop, never its controller. Concretely:
+
+- **The host owns the loop.** Turn and tool-call budgets, phase order, and revision decisions are all
+  host state. The model cannot revise, cannot raise a budget, and cannot restate an expectation after
+  seeing a result. The Anthropic Agent SDK is not used; the loop is a manual one over the Messages
+  API, so each iteration is visible.
+- **The model gets no general capability.** No shell, no file editor, no web fetch, no code
+  execution, no network-capable tool of any kind is registered. It reads source through a small
+  allowlisted set of deterministic tools under workspace path confinement, and its process boundary
+  is argv-allowlisted with no shell.
+- **The only model-influenced write** is a generated Daml Script into the run's own generated
+  directory, through a write boundary that constructs the path itself.
+- **Every tool invocation is evidence.** One dispatch function appends an append-only record with
+  argv, working directory, exit code, and output digests, addressed by a host-allocated identifier.
+  Refusals are recorded as refusals. Redaction runs before anything reaches disk.
+- **Artifacts are gated, not trusted.** Each phase output must satisfy a Zod schema and may only cite
+  evidence identifiers that resolve to real recorded invocations. A phase that exhausts its
+  validation budget is marked degraded rather than retried forever.
+- **Target text is untrusted data.** Source read from the analysed project is fenced as untrusted and
+  never enters the trusted prompt prefix.
+- **The report is host-assembled.** The model is never asked to summarise, to state a finding's
+  status, or to describe what a run established. `report.json` is the single source of truth and
+  `report.md` is a pure function of it, so the prose cannot contain a claim the structured record
+  does not.
+- **Confirmation is earned, not asserted.** A finding reaches `confirmed` only when its evidence
+  resolves and its supporting Script compiled, ran, and produced the outcome it declared *before* it
+  ran. Everything else is downgraded and kept visible.
+- **The evaluation harness is unreachable from model code paths.** No module under `src/agent/`,
+  `src/model/`, `src/tools/`, `src/evidence/`, `src/security/`, or `src/report/` may import from
+  `src/eval/`, which is asserted structurally by a test over the import graph. The model never sees
+  an expectation, never scores itself, and cannot write a scorecard.
+
+The single permitted outbound network path is host-initiated inference against the configured
+Anthropic endpoint. The credential is read from the environment by host code only: never passed as an
+argument, never placed in a prompt, an evidence record, or a report.
+
+## Requirements
+
+Node 22 (see [`.nvmrc`](.nvmrc)) and **Daml SDK 3.5.5 via `dpm` 1.0.21**. Results are only claimed
+for that pinned toolchain, and every report records it.
+
+```bash
+npm install
+npx tsx src/cli.ts doctor    # verifies the pinned toolchain and the tool surface
+```
+
+## Reproducing the results
+
+### Without an API key
+
+Everything except live inference runs with no credential.
+
+```bash
+npm run check              # typecheck, lint, format check, unit tests
+npm run test:integration   # real Daml toolchain: fixtures, oracles, pipeline, eval harness
+
+npx tsx scripts/capture-example.ts   # re-capture examples/run-f01 and examples/scorecard.json
+```
+
+The capture is byte-reproducible: re-running it on the same commit leaves the working tree clean.
+
+**Verifying the oracles independently.** Each fixture's oracle is host-owned and proves the defect on
+the real toolchain without any model involvement. You can run one directly:
+
+```bash
+cd fixtures/f01-wrong-controller   # or f02-observer-exposure, f03-missing-multiparty, f04-propose-accept-bypass
+dpm build --all
+cd test && dpm test
+```
+
+A passing oracle means the vulnerable transition really succeeds on Daml 3.5.5 — and, where the
+failure kind carries the meaning, that the party who should be refused is refused with a typed
+`AuthorizationError`, so the result cannot be explained by authorization simply not being enforced.
+Build output (`.daml/`, `*.dar`) is gitignored. `tests/integration/fixture-oracles.test.ts` runs the
+same checks and additionally asserts that no fixture source is mutated.
+
+### With an API key
+
+```bash
+export ANTHROPIC_API_KEY=...                        # host-read only; never an argument
+npx tsx src/cli.ts analyze <path-to-daml-project>
+npx tsx src/cli.ts eval
+```
+
+`analyze` writes `runs/<runId>/report.json` and `runs/<runId>/report.md`. `eval` analyses every
+fixture through a scratch copy that withholds that fixture's expectation and oracle, then writes
+`runs/scorecard.json`.
+
+Analysing an ordinary project hides nothing from the model. Withholding a benchmark fixture's answer
+is requested explicitly by the caller that evaluates it — there is no global ban on the filename
+`expected.json`, which an ordinary project is free to contain.
+
+## The fixture set
+
+Four vulnerable Daml packages, each with a host-owned, independently reviewed oracle proving the
+defect on the real toolchain, and an `expected.json` the evaluated model never sees.
+
+| Fixture | Defect |
+|---|---|
+| `f01-wrong-controller` | A choice names the wrong controller, so a party can move an asset the owner never authorised |
+| `f02-observer-exposure` | A template-level observer is disclosed contract data it has no business need to read |
+| `f03-missing-multiparty` | A change requiring two authorities can be effected by one |
+| `f04-propose-accept-bypass` | A settled state binding a counterparty is reachable without their acceptance |
+
+F02 carries a probe establishing what its query results mean. A Daml Script `query` on this toolchain
+is filtered by stakeholder: a party named nowhere on a contract sees nothing, and the same party sees
+contracts that do name it. F02's exposure result can therefore be read as evidence about the declared
+stakeholder set. That is the limit of the claim: it says nothing about what a Canton participant node
+stores or transmits, and nothing about explicit contract disclosure.
+
+## The current scorecard
+
+[`examples/scorecard.json`](examples/scorecard.json) is the only scorecard this repository has ever
+produced.
+
+| | |
+|---|---|
+| Fixtures | `f01-wrong-controller`, `f02-observer-exposure`, `f03-missing-multiparty`, `f04-propose-accept-bypass` |
+| Toolchain | Daml SDK 3.5.5, `dpm` 1.0.21 |
+| Model identifier | `fake-model-for-tests` |
+| Provenance | `harness_validation` |
+
+**Read the model identifier before reading the scores.** They were produced by a scripted fake that
+was told which template and choice to name and which exploit to write. The scorecard therefore shows
+that the scorer computes the score it should when handed a report that deserves one, and shows
+nothing about model performance. `provenance` is a required schema field precisely so this file
+cannot later be quoted as a benchmark result; only a real provider run may carry `model_run`.
+
+Scoring is mechanical: class and identifier matching against the fixture's expectation, with no
+similarity measure and no model-judged grading. Six dimensions are scored per fixture — expected
+finding detected, expected finding confirmed, expected invariant generated, test generated, test
+compiled, expected behaviour exposed — alongside counts of unsupported claims and false positives. A
+classification listed in a fixture's `allowedExtraClasses` is a defensible alternate reading and is
+not counted against the run, but it cannot substitute for the expected finding either.
+
+## Governance
+
+This repository is specification-driven; the documents below are authoritative over the code.
 
 | Artifact | Purpose |
 |---|---|
@@ -36,107 +172,21 @@ reviewed oracle proving the defect on the real toolchain:
 | [`specs/001-security-agent-loop/plan.md`](specs/001-security-agent-loop/plan.md) | Architecture, pinned Daml toolchain, and trust boundaries |
 | [`specs/001-security-agent-loop/tasks.md`](specs/001-security-agent-loop/tasks.md) | Dependency-ordered implementation tasks |
 
-Implemented so far: workspace path confinement, an argv-allowlisted process boundary with no shell,
-secret redaction, the Zod artifact and report schemas, deterministic read-only repository, git and
-Daml/`dpm` tools, and the append-only evidence store those tools now record through. The only
-executable entry point is `apsl doctor`, which verifies the pinned toolchain and the tool surface.
+## Capability boundary
 
-Evidence is the substrate the later agent will be held to, not the agent itself. Every tool
-invocation is dispatched through one function that appends a record capturing the argv, working
-directory, exit code and output digests, addressed by a host-allocated identifier; refusals are
-recorded as refusals. Redaction runs before anything is written to disk.
+This is an AI review and research prototype, **not a formal security audit**.
 
-Also implemented: the bounded host-controlled model runtime substrate — a Messages API client, tool
-plumbing that routes provider `tool_use` blocks through that same evidence-backed dispatch, per-run
-usage accounting from provider-reported numbers only, a manual loop with host-owned turn and
-tool-call budgets, the fixed phase state machine, and Zod artifact validation with a bounded retry
-budget that marks a phase degraded rather than looping. The Agent SDK is not used, and no
-provider-side shell, file-editor, web or code-execution tool is registered. The model is a
-participant in this loop, never its controller.
-
-Built on that: the first six validated, evidence-linked analysis phases — understand, inspect,
-threat model, invariants, auth semantics and scenarios — each with a host-authored objective and a
-schema its output must satisfy. The model is not handed the repository; it has to request source
-through the allowlisted tools, and an artifact citing an evidence identifier that does not resolve to
-a real recorded invocation is rejected rather than accepted on trust. Target-derived text is fenced
-as untrusted data and never enters the trusted prefix.
-
-Those scenarios now become tests that actually run. The model writes Daml Script source and declares,
-before anything executes, what it expects the run to report; the host writes that source through a
-write boundary whose only permitted destination is the run's own generated directory, compiles it
-against a copy of the target, and runs it. The committed fixture is never a build root or a write
-destination. What the toolchain reports is sorted into four states the host keeps apart — the test
-never compiled, it compiled but no result was observed, it ran and matched its prediction, or it ran
-and contradicted it — and the last two of those are the only ones that say anything about the target
-at all. A compile failure or a contradiction sends the run back for at most two host-ordered
-revisions; the model cannot choose to revise, cannot raise the budget, and cannot restate its
-expectation after seeing the result. A conclusion whose supporting test never compiled and ran to its
-own prediction cannot reach confirmed state, whatever the model asserts about it.
-
-The report is assembled by the host, not written by the model. The model is never asked to summarise,
-to state a finding's status, or to describe what the run established; the builder maps validated
-scenarios and invariants onto findings, keeps a finding confirmed only when its evidence resolves in
-the store and its supporting Script compiled, ran and matched its pre-declared expectation, and
-downgrades everything else while keeping it visible. `report.json` is the single source of truth and
-`report.md` is a pure function of it, so the document cannot contain a claim the structured record
-does not. Both carry the same prototype boundary statement and the same explicit scope limits, read
-from the JSON rather than pasted into the renderer. A generated Script that passes is
-execution-backed evidence that a scenario was exercised — not a proof that the package is secure, and
-not an audit.
-
-The deterministic F01 end-to-end tests run against the real Daml 3.5.5 toolchain with a fake model
-client and no credential. Analysing an ordinary project hides nothing; withholding a benchmark
-fixture's own expectation and oracle is requested explicitly by the caller that evaluates it, not
-implied by any filename.
-
-Four fixtures are verified this way: F01 wrong controller, F02 template-level observer exposure, F03
-missing multi-party authorization, and F04 propose/accept bypass. Each oracle demonstrates the
-vulnerable transition succeeding, and — where the failure kind carries the meaning — pins a typed
-`AuthorizationError` for the party that should be refused, so a passing oracle cannot be explained by
-authorization simply not being enforced.
-
-F02 additionally carries a probe establishing what its query results mean. A Daml Script `query` in
-this toolchain is filtered by stakeholder: a party named nowhere on a contract sees nothing, and the
-same party sees contracts that do name it. F02's exposure result can therefore be read as evidence
-about the declared stakeholder set. That is the limit of the claim: it says nothing about what a
-Canton participant node stores or transmits, and nothing about explicit contract disclosure.
-
-Requires Node 22 (see [`.nvmrc`](.nvmrc)) and Daml SDK 3.5.5 via `dpm` 1.0.21.
-
-```bash
-npm install
-npm run check          # typecheck, lint, format check, unit tests
-npx tsx src/cli.ts doctor
-npx tsx src/cli.ts analyze <path-to-daml-project>   # requires ANTHROPIC_API_KEY
-npx tsx src/cli.ts eval                             # requires ANTHROPIC_API_KEY
-```
-
-`analyze` writes `runs/<runId>/report.json` and `runs/<runId>/report.md`. `eval` analyses every
-fixture through a scratch copy that withholds the expectation and the oracle, then writes
-`runs/scorecard.json`. The credential is read from
-the environment by the host only, never passed as an argument, and never written to a report, an
-evidence record, or a prompt.
-
-## The intended idea
-
-A local CLI that, given a Daml project path, runs a bounded analysis loop in which the model is
-treated as untrusted: it may only emit validated structured artifacts and validated parameters to a
-small allowlisted set of deterministic tools. It derives authorization and privacy invariants,
-generates adversarial Daml Script tests, executes them with the real pinned Daml toolchain, revises
-when results contradict its expectations, and produces a report in which every confirmed conclusion
-must reference a recorded tool invocation. A deterministic host scorer — which the model cannot
-reach or modify — grades runs against checked-in vulnerable fixtures whose oracles and expectations
-are host-owned and independently reviewed.
-
-The point is that conclusions are traceable to executed tooling rather than model narrative. If the
-demonstration were `prompt → Markdown report`, it would have failed its own definition.
-
-## Scope boundary
-
-When implemented, this will be an AI review and research prototype, **not a formal security audit**.
-It targets Daml language-level authorization and privacy semantics on an explicitly pinned toolchain.
-It does not claim Canton-network security coverage, Daml Finance coverage, formal verification, or
-production audit capability.
+- It covers Daml language-level authorization and privacy semantics: signatories, observers,
+  controllers, and choice structure.
+- Results hold for the pinned toolchain recorded in each report, and were produced by compiling and
+  running generated Scripts locally.
+- It makes no claim about Canton network security. Sequencers, mediators, participant nodes, topology,
+  and operational deployment are out of scope.
+- It does not cover Daml Finance or any library beyond the analysed package source.
+- No formal verification is performed. **Absence of a finding is not evidence of absence.**
+- A generated Script that compiled, ran, and matched its pre-declared expectation is execution-backed
+  evidence that one scenario was exercised. It is not proof that the invariant was encoded correctly,
+  that other executions are safe, or that the package is secure.
 
 ## License
 

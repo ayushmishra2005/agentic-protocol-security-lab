@@ -25,288 +25,13 @@ import { after, before, describe, it } from 'node:test';
 import { DEFAULT_FIXTURE_IDS, evaluate, type EvalResult } from '../../src/cli/eval.js';
 import { buildScorecard } from '../../src/eval/scorer.js';
 import { ScorecardSchema, SCORE_DIMENSIONS } from '../../src/schemas/scorecard.js';
-import {
-  FAKE_MODEL_ID,
-  ScriptedClient,
-  promptText,
-  textBlock,
-  toolUseBlock,
-} from '../helpers/fakeModel.js';
+import { FAKE_MODEL_ID, type ScriptedClient } from '../helpers/fakeModel.js';
+import { createFixtureClients } from '../helpers/fixtureScriptedRuns.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fixturesRoot = path.join(repoRoot, 'fixtures');
 
 const TOOLCHAIN_TIMEOUT_MS = 900_000;
-
-interface FixturePlan {
-  readonly fixtureId: string;
-  readonly module: string;
-  readonly sourceFile: string;
-  readonly template: string;
-  readonly choice?: string;
-  readonly findingClass: string;
-  readonly exploit: string;
-}
-
-const PLANS: readonly FixturePlan[] = [
-  {
-    fixtureId: 'f01-wrong-controller',
-    module: 'Asset',
-    sourceFile: 'main/daml/Asset.daml',
-    template: 'Asset',
-    choice: 'Transfer',
-    findingClass: 'incorrect_controller',
-    exploit: `module Exploit where
-
-import Daml.Script
-import Asset
-
-run : Script ()
-run = do
-  issuer <- allocateParty "Issuer"
-  owner <- allocateParty "Owner"
-  custodian <- allocateParty "Custodian"
-
-  assetId <- submit issuer do
-    createCmd Asset with
-      issuer = issuer
-      owner = owner
-      custodian = custodian
-      description = "Test asset"
-
-  _ <- submit custodian do
-    exerciseCmd assetId Transfer with newOwner = custodian
-
-  pure ()
-`,
-  },
-  {
-    fixtureId: 'f02-observer-exposure',
-    module: 'Payroll',
-    sourceFile: 'main/daml/Payroll.daml',
-    template: 'CompensationRecord',
-    findingClass: 'observer_exposure',
-    exploit: `module Exploit where
-
-import Daml.Script
-import Payroll
-
-run : Script ()
-run = do
-  employer <- allocateParty "Employer"
-  employee <- allocateParty "Employee"
-  vendor <- allocateParty "Vendor"
-
-  _ <- submit employer do
-    createCmd CompensationRecord with
-      employer = employer
-      employee = employee
-      vendor = vendor
-      annualSalary = 100000.0
-      reviewNotes = "confidential"
-
-  visible <- query @CompensationRecord vendor
-  assertMsg "the vendor should not see the compensation record" (length visible == 1)
-`,
-  },
-  {
-    fixtureId: 'f03-missing-multiparty',
-    module: 'JointAccount',
-    sourceFile: 'main/daml/JointAccount.daml',
-    template: 'JointAccount',
-    choice: 'Withdraw',
-    findingClass: 'missing_multi_party_authorization',
-    exploit: `module Exploit where
-
-import Daml.Script
-import JointAccount
-
-run : Script ()
-run = do
-  bank <- allocateParty "Bank"
-  holderA <- allocateParty "HolderA"
-  holderB <- allocateParty "HolderB"
-
-  accountId <- submit bank do
-    createCmd JointAccount with
-      bank = bank
-      holderA = holderA
-      holderB = holderB
-      balance = 100.0
-
-  _ <- submit holderA do
-    exerciseCmd accountId Withdraw with amount = 100.0
-
-  pure ()
-`,
-  },
-  {
-    fixtureId: 'f04-propose-accept-bypass',
-    module: 'Trade',
-    sourceFile: 'main/daml/Trade.daml',
-    template: 'TradeProposal',
-    choice: 'SellerConfirm',
-    findingClass: 'propose_accept_bypass',
-    exploit: `module Exploit where
-
-import Daml.Script
-import Trade
-
-run : Script ()
-run = do
-  seller <- allocateParty "Seller"
-  buyer <- allocateParty "Buyer"
-
-  proposalId <- submit seller do
-    createCmd TradeProposal with
-      seller = seller
-      buyer = buyer
-      instrument = "TEST"
-      quantity = 1
-      price = 1.0
-
-  _ <- submit seller do
-    exerciseCmd proposalId SellerConfirm
-
-  pure ()
-`,
-  },
-];
-
-/** Schema-valid artifacts, citing evidence the fake actually collected. */
-function artifactFor(plan: FixturePlan, phase: string, evidence: readonly string[]): unknown {
-  const refs = evidence.map((evidenceId) => ({ evidenceId }));
-  const construct = plan.choice === undefined ? plan.template : `${plan.template}.${plan.choice}`;
-
-  switch (phase) {
-    case 'understand':
-      return {
-        phase,
-        summary: `A Daml package under main/ containing the ${plan.template} template.`,
-        damlPackages: ['main/daml.yaml'],
-        evidence: refs,
-      };
-    case 'inspect':
-      return {
-        phase,
-        inspectedFiles: [plan.sourceFile],
-        changeSummary: 'No version-control context; inspected the package source instead.',
-        evidence: refs,
-      };
-    case 'threat_model':
-      return {
-        phase,
-        threats: [
-          {
-            id: 'th-1',
-            actor: 'a party named on the contract',
-            capability: `would be able to act on ${construct} beyond its intended authority`,
-            impact: 'a state change or disclosure the policy does not permit',
-            template: plan.template,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'invariants':
-      return {
-        phase,
-        invariants: [
-          {
-            id: 'inv-1',
-            class: plan.findingClass,
-            statement: `The intended authorization or disclosure policy for ${construct} must hold.`,
-            template: plan.template,
-            ...(plan.choice === undefined ? {} : { choice: plan.choice }),
-            evidence: refs,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'auth_semantics':
-      return {
-        phase,
-        templates: [
-          {
-            name: plan.template,
-            signatories: ['issuer'],
-            observers: ['other'],
-            choices:
-              plan.choice === undefined
-                ? []
-                : [{ name: plan.choice, controllers: ['actor'], consuming: true }],
-            heuristic: false,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'scenarios':
-      return {
-        phase,
-        scenarios: [
-          {
-            id: 'sc-1',
-            invariantId: 'inv-1',
-            title: `Unauthorized action against ${construct}`,
-            severity: 'high',
-            description: `Set up the parties, then exercise ${construct} as the party that should not be able to.`,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'generate_tests':
-      return {
-        phase,
-        tests: [
-          {
-            id: 'gt-1',
-            scenarioId: 'sc-1',
-            scriptName: 'Exploit',
-            entryPoint: 'run',
-            source: plan.exploit,
-            property: `The intended policy for ${construct}.`,
-            expectedOutcome: 'script_passes',
-            violationIndicatedBy: 'script_passes',
-            expectedBehavior: 'The Script completes, which is the ledger permitting the action.',
-            evidence: refs,
-          },
-        ],
-        evidence: refs,
-      };
-    default:
-      throw new Error(`no artifact for phase ${phase}`);
-  }
-}
-
-function currentPhase(prompt: string): string {
-  return /CURRENT PHASE: (\w+)/.exec(prompt)?.[1] ?? 'understand';
-}
-
-/**
- * One client per fixture.
- *
- * The fixture cannot be inferred from the prompt — the first turn of a run has
- * not yet read any source, so nothing in it names the module. Binding a client
- * to a plan up front also keeps each run's prompts separate, which is what the
- * leakage assertions inspect.
- */
-function makeClient(plan: FixturePlan): ScriptedClient {
-  const answered = new Set<string>();
-  return new ScriptedClient((request) => {
-    const prompt = promptText(request);
-    const phase = currentPhase(prompt);
-
-    if (!answered.has(phase)) {
-      answered.add(phase);
-      return {
-        stopReason: 'tool_use',
-        content: [toolUseBlock(`t-${phase}`, 'repo_read_file', { path: plan.sourceFile })],
-      };
-    }
-
-    const ids = [...prompt.matchAll(/ev_[0-9a-f]{16}/g)].map((match) => match[0]);
-    return { content: [textBlock(JSON.stringify(artifactFor(plan, phase, [...new Set(ids)])))] };
-  });
-}
 
 /** Digest of every committed fixture file, to prove the run did not touch them. */
 function fixtureDigest(): string {
@@ -335,27 +60,22 @@ function fixtureDigest(): string {
 
 let scratch: string;
 let evaluation: EvalResult;
-const clients: ScriptedClient[] = [];
+let clients: ScriptedClient[];
 let digestBefore: string;
 
 before(
   async () => {
     digestBefore = fixtureDigest();
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'apsl-eval-'));
+    const fixtureClients = createFixtureClients();
+    clients = fixtureClients.clients;
 
     evaluation = await evaluate({
       fixturesRoot,
       runsRoot: path.join(scratch, 'runs'),
       outputRoot: path.join(scratch, 'out'),
       scratchRoot: path.join(scratch, 'targets'),
-      // Fixtures are analysed in the order given, so the nth client is the nth plan.
-      createClient: () => {
-        const plan = PLANS[clients.length];
-        if (plan === undefined) throw new Error('more analyses than fixture plans');
-        const client = makeClient(plan);
-        clients.push(client);
-        return client;
-      },
+      createClient: fixtureClients.create,
       runIdFor: (fixtureId) => `run-${fixtureId}`,
       now: () => new Date('2026-03-03T12:00:00.000Z'),
     });

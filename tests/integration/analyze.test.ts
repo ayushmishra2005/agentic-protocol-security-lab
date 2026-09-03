@@ -25,13 +25,8 @@ import { HOST_ONLY_FIXTURE_ENTRIES } from '../../src/eval/analysisView.js';
 import { renderReport } from '../../src/report/render.js';
 import { ANALYSIS_PHASES } from '../../src/agent/steps/index.js';
 import { ReportSchema } from '../../src/schemas/report.js';
-import {
-  FAKE_MODEL_ID,
-  ScriptedClient,
-  promptText,
-  textBlock,
-  toolUseBlock,
-} from '../helpers/fakeModel.js';
+import { FAKE_MODEL_ID, type ScriptedClient } from '../helpers/fakeModel.js';
+import { F01_EXPLOIT_SOURCE, createF01Client } from '../helpers/f01ScriptedRun.js';
 
 /** First element, or a clear failure. Keeps assertions free of index guards. */
 function first<T>(items: readonly T[]): T {
@@ -42,146 +37,6 @@ function first<T>(items: readonly T[]): T {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const FIXTURE = path.join(repoRoot, 'fixtures', 'f01-wrong-controller');
-
-/**
- * The exploit Script, written from what the fixture source says.
- *
- * `Transfer` names the custodian as its controller, so a submission by the
- * custodian is expected to be accepted. The Script completing is therefore the
- * ledger permitting a transfer the owner never authorised.
- */
-const EXPLOIT_SOURCE = `module Exploit where
-
-import Daml.Script
-import Asset
-
-run : Script ()
-run = do
-  issuer <- allocateParty "Issuer"
-  owner <- allocateParty "Owner"
-  custodian <- allocateParty "Custodian"
-
-  assetId <- submit issuer do
-    createCmd Asset with
-      issuer = issuer
-      owner = owner
-      custodian = custodian
-      description = "Test asset"
-
-  _ <- submit custodian do
-    exerciseCmd assetId Transfer with newOwner = custodian
-
-  pure ()
-`;
-
-/** Schema-valid artifacts, citing the evidence the fake actually collected. */
-function artifactFor(phase: string, evidence: readonly string[]): unknown {
-  const refs = evidence.map((evidenceId) => ({ evidenceId }));
-
-  switch (phase) {
-    case 'understand':
-      return {
-        phase,
-        summary: 'A Daml package under main/ with a single module describing an asset holding.',
-        damlPackages: ['main/daml.yaml'],
-        evidence: refs,
-      };
-    case 'inspect':
-      return {
-        phase,
-        inspectedFiles: ['main/daml/Asset.daml'],
-        changeSummary: 'No version-control context; inspected the package source instead.',
-        evidence: refs,
-      };
-    case 'threat_model':
-      return {
-        phase,
-        threats: [
-          {
-            id: 'th-1',
-            actor: 'custodian',
-            capability: 'would be able to exercise a choice that moves ownership',
-            impact: 'the owner loses the asset without submitting anything',
-            template: 'Asset',
-          },
-        ],
-        evidence: refs,
-      };
-    case 'invariants':
-      return {
-        phase,
-        invariants: [
-          {
-            id: 'inv-1',
-            class: 'incorrect_controller',
-            statement:
-              'Only the current owner may transfer ownership of an Asset away from themselves.',
-            template: 'Asset',
-            choice: 'Transfer',
-            evidence: refs,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'auth_semantics':
-      return {
-        phase,
-        templates: [
-          {
-            name: 'Asset',
-            signatories: ['issuer'],
-            observers: ['owner', 'custodian'],
-            choices: [{ name: 'Transfer', controllers: ['custodian'], consuming: true }],
-            heuristic: false,
-          },
-        ],
-        evidence: refs,
-      };
-    case 'scenarios':
-      return {
-        phase,
-        scenarios: [
-          {
-            id: 'sc-1',
-            invariantId: 'inv-1',
-            title: 'Custodian transfers ownership without the owner submitting',
-            severity: 'high',
-            description:
-              'Allocate issuer, owner and custodian, create an Asset, then have the custodian ' +
-              'submit Transfer. If the invariant holds the ledger should reject it.',
-          },
-        ],
-        evidence: refs,
-      };
-    case 'generate_tests':
-      return {
-        phase,
-        tests: [
-          {
-            id: 'gt-1',
-            scenarioId: 'sc-1',
-            scriptName: 'Exploit',
-            entryPoint: 'run',
-            source: EXPLOIT_SOURCE,
-            property: 'Only the current owner may transfer ownership away from themselves.',
-            expectedOutcome: 'script_passes',
-            violationIndicatedBy: 'script_passes',
-            expectedBehavior:
-              'The custodian submits Transfer. If the declared controller is the custodian, the ' +
-              'submission is accepted and the Script completes.',
-            evidence: refs,
-          },
-        ],
-        evidence: refs,
-      };
-    default:
-      throw new Error(`no artifact for phase ${phase}`);
-  }
-}
-
-function currentPhase(prompt: string): string {
-  return /CURRENT PHASE: (\w+)/.exec(prompt)?.[1] ?? 'understand';
-}
 
 let scratch: string;
 let result: AnalyzeResult;
@@ -213,25 +68,7 @@ before(async () => {
   fixtureBefore = snapshotFixture();
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'apsl-analyze-'));
 
-  // One tool call per phase, then the artifact. The tool call is what makes the
-  // cited evidence real: the identifiers come back from the host, and an
-  // artifact citing anything else is rejected before it reaches the report.
-  const answered = new Set<string>();
-  client = new ScriptedClient((request) => {
-    const prompt = promptText(request);
-    const phase = currentPhase(prompt);
-
-    if (!answered.has(phase)) {
-      answered.add(phase);
-      return {
-        stopReason: 'tool_use',
-        content: [toolUseBlock(`t-${phase}`, 'repo_read_file', { path: 'main/daml/Asset.daml' })],
-      };
-    }
-
-    const ids = [...prompt.matchAll(/ev_[0-9a-f]{16}/g)].map((match) => match[0]);
-    return { content: [textBlock(JSON.stringify(artifactFor(phase, [...new Set(ids)])))] };
-  });
+  client = createF01Client();
 
   result = await analyze({
     targetPath: FIXTURE,
@@ -266,7 +103,7 @@ describe('analyze: pipeline', () => {
   it('wrote the generated Script only inside the run directory', () => {
     const generated = path.join(result.runDirectory, 'exec', 'generated', 'daml', 'Exploit.daml');
     assert.equal(fs.existsSync(generated), true);
-    assert.equal(fs.readFileSync(generated, 'utf8'), EXPLOIT_SOURCE);
+    assert.equal(fs.readFileSync(generated, 'utf8'), F01_EXPLOIT_SOURCE);
     assert.equal(first(result.report.generatedTests).relativePath.includes('..'), false);
   });
 

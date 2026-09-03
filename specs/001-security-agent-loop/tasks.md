@@ -240,11 +240,11 @@ before scoring depends on it.
 
 **Purpose**: An outsider without credentials can judge whether the conclusions are earned.
 
-- [ ] T088 [US3] Capture a complete redacted example run into `examples/run-f01/`, including tool invocation records with exit codes, the generated Scripts, and the report
-- [ ] T089 [US3] Verify the checked-in example contains no credential material
-- [ ] T090 [US3] Rewrite `README.md` for the shipped MVP: purpose, trust model, exact reproduction commands for `analyze` and `eval`, the pinned toolchain version, and the honest capability boundary
-- [ ] T091 [US3] Document how to verify oracles without an API key, so reviewers can confirm the fixtures independently of the model
-- [ ] T092 [US3] Document the current scorecard alongside the fixture set, toolchain version, and model identifier that produced it
+- [x] T088 [US3] Capture a complete redacted example run into `examples/run-f01/`, including tool invocation records with exit codes, the generated Scripts, and the report
+- [x] T089 [US3] Verify the checked-in example contains no credential material
+- [x] T090 [US3] Rewrite `README.md` for the shipped MVP: purpose, trust model, exact reproduction commands for `analyze` and `eval`, the pinned toolchain version, and the honest capability boundary
+- [x] T091 [US3] Document how to verify oracles without an API key, so reviewers can confirm the fixtures independently of the model
+- [x] T092 [US3] Document the current scorecard alongside the fixture set, toolchain version, and model identifier that produced it
 
 **Checkpoint**: User Story 3 is complete. The repository is publicly defensible.
 

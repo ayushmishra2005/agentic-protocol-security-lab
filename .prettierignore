@@ -1,6 +1,10 @@
 node_modules/
 dist/
 runs/
+
+# Captured run artifacts. Written verbatim by scripts/capture-example.ts, and
+# reflowing them would make the published example fail to re-capture identically.
+examples/
 coverage/
 .specify/
 .cursor/

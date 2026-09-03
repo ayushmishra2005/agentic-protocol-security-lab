@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "runId": "example-f01",
+  "target": {
+    "relativePath": "f01-wrong-controller"
+  },
+  "startedAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": "2026-01-01T00:00:01.000Z",
+  "toolchain": {
+    "damlSdkVersion": "3.5.5",
+    "dpmVersion": "1.0.21"
+  },
+  "model": {
+    "id": "fake-model-for-tests"
+  },
+  "usage": {
+    "inputTokens": 140,
+    "outputTokens": 70,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 0,
+    "modelCalls": 14,
+    "toolInvocations": 7,
+    "toolInvocationsRefused": 0
+  },
+  "findings": [
+    {
+      "id": "finding-sc-1",
+      "class": "incorrect_controller",
+      "title": "Custodian transfers ownership without the owner submitting",
+      "detail": "Invariant under test: Only the current owner may transfer ownership of an Asset away from themselves.\nAttempted misuse: Allocate issuer, owner and custodian, create an Asset, then have the custodian submit Transfer. If the invariant holds the ledger should reject it.\nGenerated Script Exploit (attempt 1): executed_expected. It declared script_passes before running, and a violation would be indicated by script_passes.",
+      "template": "Asset",
+      "choice": "Transfer",
+      "severity": "high",
+      "state": "confirmed",
+      "evidence": [
+        {
+          "evidenceId": "ev_8e29581647941a24"
+        },
+        {
+          "evidenceId": "ev_a28adc229ac8289b"
+        },
+        {
+          "evidenceId": "ev_ac7f6c3700e6c15f"
+        },
+        {
+          "evidenceId": "ev_b7649abd84025a3c"
+        },
+        {
+          "evidenceId": "ev_9a72693bb2f763f9"
+        },
+        {
+          "evidenceId": "ev_bbdad2ee2d55d1c4"
+        },
+        {
+          "evidenceId": "ev_13e886acd8b47975"
+        },
+        {
+          "evidenceId": "ev_b50627bfea57904a",
+          "note": "compile of Exploit"
+        },
+        {
+          "evidenceId": "ev_d9bcc52719de71bf",
+          "note": "execution of Exploit"
+        }
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "inv-1",
+      "class": "incorrect_controller",
+      "statement": "Only the current owner may transfer ownership of an Asset away from themselves.",
+      "template": "Asset",
+      "choice": "Transfer",
+      "evidence": [
+        {
+          "evidenceId": "ev_8e29581647941a24"
+        },
+        {
+          "evidenceId": "ev_a28adc229ac8289b"
+        },
+        {
+          "evidenceId": "ev_ac7f6c3700e6c15f"
+        },
+        {
+          "evidenceId": "ev_b7649abd84025a3c"
+        }
+      ]
+    }
+  ],
+  "generatedTests": [
+    {
+      "id": "gt-1",
+      "scenarioId": "sc-1",
+      "relativePath": "generated/daml/Exploit.daml",
+      "attempt": 1,
+      "expectedOutcome": "script_passes",
+      "outcome": "executed_expected",
+      "compiled": true,
+      "passed": true,
+      "compileEvidenceId": "ev_b50627bfea57904a",
+      "evidenceId": "ev_d9bcc52719de71bf"
+    }
+  ],
+  "revision": {
+    "attempts": 1,
+    "revisions": 0,
+    "maxRevisions": 2,
+    "exhausted": false
+  },
+  "degradedPhases": [],
+  "summary": "Analysed f01-wrong-controller and produced 1 finding(s): 1 confirmed, 0 unconfirmed. 1 adversarial Daml Script(s) were generated, of which 1 compiled and 1 executed on Daml SDK 3.5.5.",
+  "verification": {
+    "note": "A confirmed finding means a generated Daml Script compiled, executed on the pinned toolchain, and produced the outcome it declared before it ran. That is execution-backed evidence that the scenario was exercised, not a proof that the invariant was encoded correctly, that all executions are safe, or that the package is secure.",
+    "scopeLimitations": [
+      "Covers Daml language-level authorization and privacy semantics only: signatories, observers, controllers, and choice structure.",
+      "Results hold for the pinned Daml toolchain recorded in this report, and were produced by compiling and running generated Scripts locally.",
+      "Makes no claim about Canton network security: sequencers, mediators, participant nodes, topology, and operational deployment are all out of scope.",
+      "Does not cover Daml Finance or any other library beyond the analysed package source.",
+      "No formal verification is performed. Absence of a finding is not evidence of absence.",
+      "Not a production security audit, and not a substitute for review by a qualified auditor."
+    ]
+  },
+  "boundaryStatement": "AI review and research prototype, not a formal security audit."
+}
