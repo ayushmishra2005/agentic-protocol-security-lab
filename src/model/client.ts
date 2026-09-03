@@ -46,14 +46,59 @@ export class ModelClientError extends Error {
   override readonly name: string = 'ModelClientError';
 }
 
+/**
+ * Diagnostics copied off a provider error, restricted to fields that cannot
+ * carry request or credential material.
+ *
+ * Three fields, chosen individually rather than by spreading the SDK error.
+ * `status` and `requestID` are transport facts; `providerErrorType` is the
+ * `error.type` discriminant, which is a fixed enum the SDK parses out for us.
+ * Headers are excluded because they carry the authorization header, and the
+ * response body is excluded because it is provider-controlled text that would
+ * end up in host logs unread.
+ */
+export interface ProviderErrorDetail {
+  readonly status?: number;
+  readonly requestId?: string;
+  readonly providerErrorType?: string;
+}
+
+/**
+ * Read safe diagnostics off an SDK error.
+ *
+ * Returns nothing for a non-API error, so a transport or programming fault
+ * cannot smuggle arbitrary properties in under these names.
+ */
+export function providerErrorDetail(error: unknown): ProviderErrorDetail {
+  if (!(error instanceof Anthropic.APIError)) return {};
+
+  return {
+    ...(typeof error.status === 'number' ? { status: error.status } : {}),
+    ...(typeof error.requestID === 'string' ? { requestId: error.requestID } : {}),
+    ...(typeof error.type === 'string' ? { providerErrorType: error.type } : {}),
+  };
+}
+
 /** Raised when the provider fails in a way retrying cannot fix. */
 export class ModelRequestError extends ModelClientError {
   override readonly name = 'ModelRequestError';
+  /** Requests actually issued, not the budget that was available. */
   readonly attempts: number;
+  readonly status?: number;
+  readonly requestId?: string;
+  readonly providerErrorType?: string;
 
-  constructor(message: string, options: { attempts: number; cause?: unknown }) {
+  constructor(
+    message: string,
+    options: { attempts: number; cause?: unknown; detail?: ProviderErrorDetail },
+  ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.attempts = options.attempts;
+
+    const detail = options.detail ?? {};
+    if (detail.status !== undefined) this.status = detail.status;
+    if (detail.requestId !== undefined) this.requestId = detail.requestId;
+    if (detail.providerErrorType !== undefined) this.providerErrorType = detail.providerErrorType;
   }
 }
 
@@ -167,9 +212,11 @@ export class AnthropicModelClient implements ModelClient {
     this.#sleep = options.sleep ?? defaultSleep;
 
     this.#client = new Anthropic({
-      // The credential is handed over as the SDK's own lazy accessor type, so it
-      // never exists as a plain string in this module's scope.
-      apiKey: credential.asApiKeySetter(),
+      // The only place the credential leaves its wrapper. It must be a string:
+      // this SDK version discards a function-valued `apiKey` and then fails
+      // auth resolution before it ever reaches the transport. The value is
+      // handed straight to the constructor and never bound to a local.
+      apiKey: credential.revealForProviderClient(),
       timeout: options.requestTimeoutMs ?? MODEL_LOOP_DEFAULTS.requestTimeoutMs,
       // Retries are host-owned and bounded below. Leaving the SDK's own retry
       // enabled would multiply the two budgets together.
@@ -181,9 +228,16 @@ export class AnthropicModelClient implements ModelClient {
     assertCustomToolsOnly(request.tools);
 
     let lastError: unknown;
+    // The budget, and separately the requests actually issued. Reporting the
+    // budget as though it were the count made a terminal first failure look
+    // like an exhausted retry sequence, which points diagnosis at the network
+    // when the fault is in the host's own configuration.
     const attempts = this.#maxRetries + 1;
+    let made = 0;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      made = attempt;
+
       try {
         const message = await this.#client.messages.create({
           model: this.modelId,
@@ -211,10 +265,13 @@ export class AnthropicModelClient implements ModelClient {
 
     // The final failure is reported, never swallowed. The provider error is
     // attached as `cause` rather than interpolated, and request headers are
-    // never read, so no credential can travel out through this path.
-    throw new ModelRequestError(`Provider request failed after ${String(attempts)} attempt(s).`, {
-      attempts,
+    // never read, so no credential can travel out through this path. The safe
+    // diagnostics are structured fields; the provider's own message and body
+    // stay out of the public message for the same reason.
+    throw new ModelRequestError(`Provider request failed after ${String(made)} attempt(s).`, {
+      attempts: made,
       cause: lastError,
+      detail: providerErrorDetail(lastError),
     });
   }
 }

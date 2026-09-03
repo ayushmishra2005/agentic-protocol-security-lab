@@ -19,11 +19,15 @@ export const REQUIRED_DAML_SDK_VERSION = '3.5.5';
 export const REQUIRED_DPM_CLI_VERSION = '1.0.21';
 
 /**
- * Pinned model identifier. Not contacted anywhere in this phase; no model
- * client exists yet. The exact dated identifier MUST be confirmed against the
- * installed SDK before the first request is ever made.
+ * Pinned model identifier.
+ *
+ * The dated form is deliberate. An undated alias silently follows whatever the
+ * provider currently points it at, which would mean two runs of the same
+ * fixture could be graded against different models without anything in the
+ * repository changing. A report that records the model it used is only
+ * meaningful if that identifier denotes one fixed model.
  */
-export const DEFAULT_MODEL_ID = 'claude-sonnet-4-5';
+export const DEFAULT_MODEL_ID = 'claude-sonnet-4-5-20250929';
 
 const DEFAULT_DPM_BIN = path.join(homedir(), '.dpm', 'bin', 'dpm');
 const DEFAULT_GIT_BIN = '/usr/bin/git';
@@ -106,9 +110,8 @@ export function resolveModelId(source?: EnvSource): string {
  * The key is a `#private` field, so it is unreachable from outside the class
  * even with a cast. `toString`, `toJSON` and Node's inspect hook all render
  * `[REDACTED]`, so string interpolation, `JSON.stringify` and `console.log`
- * cannot leak it. The only way out is `asApiKeySetter`, whose shape matches the
- * SDK's own `ApiKeySetter` and which is passed directly to the client
- * constructor and nowhere else.
+ * cannot leak it. The only way out is `revealForProviderClient`, which is
+ * called in exactly one place: constructing the SDK client.
  */
 export class ProviderCredential {
   readonly #key: string;
@@ -120,10 +123,19 @@ export class ProviderCredential {
     this.#key = key.trim();
   }
 
-  /** Lazy accessor in the exact shape the SDK client accepts. */
-  asApiKeySetter(): () => Promise<string> {
-    const key = this.#key;
-    return () => Promise.resolve(key);
+  /**
+   * Yield the raw key, for the provider client and nothing else.
+   *
+   * The deliberately awkward name is the point: this is the one hole in the
+   * wrapper, and a reader of any other call site should immediately ask why it
+   * is there. SDK 0.123.0 keeps `apiKey` only when it is a string
+   * (`client.js:135`), and its function-valued form is silently discarded,
+   * leaving the client with no auth at all. The key therefore has to cross this
+   * boundary as a string; the wrapper's job is to make that crossing explicit
+   * and singular rather than to prevent it.
+   */
+  revealForProviderClient(): string {
+    return this.#key;
   }
 
   toString(): string {

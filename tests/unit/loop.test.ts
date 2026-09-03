@@ -35,8 +35,13 @@ import {
   ProviderCredential,
   resolveProviderCredential,
 } from '../../src/config.js';
+import Anthropic from '@anthropic-ai/sdk';
+
 import {
+  AnthropicModelClient,
   assertCustomToolsOnly,
+  ModelRequestError,
+  providerErrorDetail,
   type ModelClient,
   type ModelRequest,
 } from '../../src/model/client.js';
@@ -152,9 +157,9 @@ describe('provider credential boundary', () => {
     assert.equal(String(credential).includes('sk-ant-'), false);
   });
 
-  it('yields the key only through the SDK-shaped lazy accessor', async () => {
+  it('yields the key only through the single named provider accessor', () => {
     const credential = new ProviderCredential(FAKE_KEY);
-    assert.equal(await credential.asApiKeySetter()(), FAKE_KEY);
+    assert.equal(credential.revealForProviderClient(), FAKE_KEY);
   });
 
   it('exposes no own enumerable property holding the key', () => {
@@ -178,6 +183,179 @@ describe('provider credential boundary', () => {
       assert.ok(error instanceof ConfigError);
       assert.equal(error.message.includes('sk-ant-'), false);
     }
+  });
+});
+
+// Provider failure diagnostics.
+//
+// Entirely offline. Errors are constructed directly from the installed SDK's
+// own classes rather than by driving a request, so these assertions exercise
+// the exact types the client will see in production without a transport, a
+// credential, or a host to contact.
+//
+// The sentinels are credential-shaped and are planted where a careless
+// implementation would copy from — the response body and the response headers —
+// so the non-leak assertions test something real rather than an empty string.
+const PROVIDER_BODY_SENTINEL = 'sk-ant-BODY_SENTINEL_MUST_NOT_APPEAR';
+const PROVIDER_HEADER_SENTINEL = 'sk-ant-HEADER_SENTINEL_MUST_NOT_APPEAR';
+
+function sdkError(
+  status: number,
+  errorType: string,
+  requestId?: string,
+): InstanceType<typeof Anthropic.APIError> {
+  const headers = new Headers({
+    authorization: `Bearer ${PROVIDER_HEADER_SENTINEL}`,
+  });
+  if (requestId !== undefined) headers.set('request-id', requestId);
+
+  return Anthropic.APIError.generate(
+    status,
+    {
+      type: 'error',
+      error: { type: errorType, message: `PROVIDER_PROSE ${PROVIDER_BODY_SENTINEL}` },
+    },
+    undefined,
+    headers,
+  );
+}
+
+describe('provider credential reaches the transport', () => {
+  it('authenticates the request instead of failing before it is sent', async () => {
+    // The bug this covers was invisible from the outside: a function-valued
+    // `apiKey` is discarded by SDK 0.123.0, so the client threw "Could not
+    // resolve authentication method" before any request existed. The assertion
+    // that matters is therefore that the transport is reached at all.
+    const original = globalThis.fetch;
+    // Belt and braces: even if the stub below were bypassed, a loopback base
+    // URL means nothing can leave the machine.
+    const originalBaseUrl = process.env['ANTHROPIC_BASE_URL'];
+    process.env['ANTHROPIC_BASE_URL'] = 'http://127.0.0.1:1';
+
+    let reached = 0;
+    let sawApiKeyHeader = false;
+
+    globalThis.fetch = (_input: unknown, init?: RequestInit): Promise<Response> => {
+      reached += 1;
+      const headers = new Headers(init?.headers ?? {});
+      sawApiKeyHeader = headers.get('x-api-key') === FAKE_KEY;
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'msg_transport',
+            type: 'message',
+            role: 'assistant',
+            model: 'test-model',
+            content: [{ type: 'text', text: 'ok' }],
+            stop_reason: 'end_turn',
+            stop_sequence: null,
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    };
+
+    try {
+      const client = new AnthropicModelClient({
+        credential: new ProviderCredential(FAKE_KEY),
+        modelId: 'test-model',
+        maxRetries: 0,
+        sleep: () => Promise.resolve(),
+      });
+
+      const response = await client.createMessage({
+        system: 'system',
+        messages: [{ role: 'user', content: 'hello' }],
+        tools: [],
+      });
+
+      assert.equal(reached, 1);
+      assert.equal(sawApiKeyHeader, true);
+      assert.equal(response.id, 'msg_transport');
+      assert.equal(response.stopReason, 'end_turn');
+    } finally {
+      globalThis.fetch = original;
+      if (originalBaseUrl === undefined) delete process.env['ANTHROPIC_BASE_URL'];
+      else process.env['ANTHROPIC_BASE_URL'] = originalBaseUrl;
+    }
+  });
+});
+
+describe('provider failure diagnostics', () => {
+  it('retains the HTTP status, request id and provider error type', () => {
+    const detail = providerErrorDetail(sdkError(401, 'authentication_error', 'req_abc123'));
+
+    assert.equal(detail.status, 401);
+    assert.equal(detail.requestId, 'req_abc123');
+    assert.equal(detail.providerErrorType, 'authentication_error');
+  });
+
+  it('omits fields the provider did not supply', () => {
+    const detail = providerErrorDetail(sdkError(404, 'not_found_error'));
+
+    assert.equal(detail.status, 404);
+    assert.equal(detail.requestId, undefined);
+    assert.equal(Object.hasOwn(detail, 'requestId'), false);
+  });
+
+  it('extracts nothing from an error that did not come from the provider', () => {
+    assert.deepEqual(providerErrorDetail(new Error('local fault')), {});
+    assert.deepEqual(providerErrorDetail({ status: 500, requestID: 'spoofed' }), {});
+  });
+
+  it('surfaces no response body, header, or credential material', () => {
+    const error = new ModelRequestError('Provider request failed after 1 attempt(s).', {
+      attempts: 1,
+      cause: sdkError(401, 'authentication_error', 'req_abc123'),
+      detail: providerErrorDetail(sdkError(401, 'authentication_error', 'req_abc123')),
+    });
+
+    // Everything a caller would reasonably log: the public message and the
+    // error's own enumerable state.
+    const exposed = `${error.message}\n${JSON.stringify({
+      attempts: error.attempts,
+      status: error.status,
+      requestId: error.requestId,
+      providerErrorType: error.providerErrorType,
+    })}\n${Object.keys(error).join(',')}`;
+
+    assert.equal(exposed.includes(PROVIDER_BODY_SENTINEL), false);
+    assert.equal(exposed.includes(PROVIDER_HEADER_SENTINEL), false);
+    assert.equal(exposed.includes(FAKE_KEY), false);
+    assert.equal(/sk-ant-/.test(exposed), false);
+    // The provider's own prose stays out of the host message.
+    assert.equal(exposed.includes('PROVIDER_PROSE'), false);
+
+    // No header or body carrier was added to the error.
+    for (const field of ['headers', 'body', 'error', 'request', 'response']) {
+      assert.equal(Object.hasOwn(error, field), false);
+    }
+  });
+
+  it('reports the attempts it was given, not a budget', () => {
+    const terminal = new ModelRequestError('Provider request failed after 1 attempt(s).', {
+      attempts: 1,
+    });
+    assert.equal(terminal.attempts, 1);
+    assert.match(terminal.message, /after 1 attempt/);
+
+    const exhausted = new ModelRequestError('Provider request failed after 4 attempt(s).', {
+      attempts: 4,
+    });
+    assert.equal(exhausted.attempts, 4);
+  });
+
+  it('leaves diagnostics absent when the provider supplied none', () => {
+    const error = new ModelRequestError('Provider request failed after 1 attempt(s).', {
+      attempts: 1,
+      detail: providerErrorDetail(new Error('connection reset')),
+    });
+
+    assert.equal(error.status, undefined);
+    assert.equal(error.requestId, undefined);
+    assert.equal(error.providerErrorType, undefined);
   });
 });
 

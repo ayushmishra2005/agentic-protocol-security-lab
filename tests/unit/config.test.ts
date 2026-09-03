@@ -87,8 +87,24 @@ describe('model identifier', () => {
     assert.equal(resolveModelId({}), DEFAULT_MODEL_ID);
   });
 
+  it('pins a dated identifier rather than a moving alias', () => {
+    // The date matters: an undated alias follows whatever the provider points
+    // it at, so two runs could be graded against different models with nothing
+    // in the repository having changed.
+    assert.equal(DEFAULT_MODEL_ID, 'claude-sonnet-4-5-20250929');
+    assert.match(DEFAULT_MODEL_ID, /-\d{8}$/);
+  });
+
   it('is overridable', () => {
     assert.equal(resolveModelId({ SECURITY_LAB_MODEL: 'other-model' }), 'other-model');
+  });
+
+  it('lets an explicit override win over the pinned default', () => {
+    assert.notEqual(resolveModelId({ SECURITY_LAB_MODEL: 'other-model' }), DEFAULT_MODEL_ID);
+    // Blank and whitespace-only values are not an override, so a set-but-empty
+    // variable cannot silently unpin the model.
+    assert.equal(resolveModelId({ SECURITY_LAB_MODEL: '   ' }), DEFAULT_MODEL_ID);
+    assert.equal(resolveModelId({ SECURITY_LAB_MODEL: undefined }), DEFAULT_MODEL_ID);
   });
 });
 
